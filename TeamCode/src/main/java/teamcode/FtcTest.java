@@ -139,7 +139,7 @@ public class FtcTest extends FtcTeleOp
     private long exposure;
     private WebcamName frontWebcam = null;
     private WebcamName rearWebcam = null;
-
+    private boolean fpsMeterEnabled = false;
     //
     // Overrides FtcOpMode abstract method.
     //
@@ -607,6 +607,12 @@ public class FtcTest extends FtcTeleOp
                         }
                     }
                     passToTeleOp = false;
+                }
+                else if (testChoices.test == Test.VISION_TEST && pressed)
+                {
+                    fpsMeterEnabled = !fpsMeterEnabled;
+                    robot.vision.setFpsMeterEnabled(fpsMeterEnabled);
+                    robot.globalTracer.traceInfo(moduleName, "fpsMeterEnabled = %s", fpsMeterEnabled);
                 }
                 break;
 

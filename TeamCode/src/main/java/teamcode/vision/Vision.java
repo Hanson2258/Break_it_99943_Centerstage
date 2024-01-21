@@ -85,6 +85,7 @@ public class Vision
     private final TrcDbgTrace tracer;
     private final Robot robot;
     private final WebcamName webcam1, webcam2;
+    private OpenCvCamera openCvCamera = null;
     private FtcRawEocvColorBlobPipeline rawColorBlobPipeline;
     public FtcRawEocvVision rawColorBlobVision;
     public FtcVisionAprilTag aprilTagVision;
@@ -113,18 +114,15 @@ public class Vision
             opMode.hardwareMap.get(WebcamName.class, RobotParams.HWNAME_WEBCAM2): null;
         if (RobotParams.Preferences.tuneColorBlobVision)
         {
-            OpenCvCamera openCvCam;
-
             if (RobotParams.Preferences.showVisionView)
             {
                 int cameraViewId = opMode.hardwareMap.appContext.getResources().getIdentifier(
                     "cameraMonitorViewId", "id", opMode.hardwareMap.appContext.getPackageName());
-                openCvCam = OpenCvCameraFactory.getInstance().createWebcam(webcam1, cameraViewId);
-                openCvCam.showFpsMeterOnViewport(false);
+                openCvCamera = OpenCvCameraFactory.getInstance().createWebcam(webcam1, cameraViewId);
             }
             else
             {
-                openCvCam = OpenCvCameraFactory.getInstance().createWebcam(webcam1);
+                openCvCamera = OpenCvCameraFactory.getInstance().createWebcam(webcam1);
             }
 
             tracer.traceInfo(moduleName, "Starting RawEocvColorBlobVision...");
@@ -135,7 +133,7 @@ public class Vision
             rawColorBlobPipeline.setAnnotateEnabled(true);
             rawColorBlobVision = new FtcRawEocvVision(
                 "rawColorBlobVision", RobotParams.CAM_IMAGE_WIDTH, RobotParams.CAM_IMAGE_HEIGHT, null, null,
-                openCvCam, RobotParams.CAM_ORIENTATION);
+                openCvCamera, RobotParams.CAM_ORIENTATION);
             setRawColorBlobVisionEnabled(false);
         }
         else
@@ -205,12 +203,13 @@ public class Vision
                     RobotParams.Preferences.showVisionView, visionProcessors);
             }
             // Disable all vision until they are needed.
-            setRawColorBlobVisionEnabled(false);
             for (VisionProcessor processor: visionProcessors)
             {
                 vision.setProcessorEnabled(processor, false);
             }
         }
+
+        setFpsMeterEnabled(false);
     }   //Vision
 
     /**
@@ -223,6 +222,23 @@ public class Vision
             vision.getVisionPortal().close();
         }
     }   //close
+
+    /**
+     * This method enables/disables FPS meter on the viewport.
+     *
+     * @param enabled specifies true to enable FPS meter, false to disable.
+     */
+    public void setFpsMeterEnabled(boolean enabled)
+    {
+        if (openCvCamera != null)
+        {
+            openCvCamera.showFpsMeterOnViewport(enabled);
+        }
+        else if (vision != null)
+        {
+            vision.setFpsMeterEnabled(enabled);
+        }
+    }   //setFpsMeterEnabled
 
     /**
      * This method returns the front webcam.
