@@ -85,7 +85,6 @@ public class Vision
     private final TrcDbgTrace tracer;
     private final Robot robot;
     private final WebcamName webcam1, webcam2;
-    private OpenCvCamera openCvCamera = null;
     private FtcRawEocvColorBlobPipeline rawColorBlobPipeline;
     public FtcRawEocvVision rawColorBlobVision;
     public FtcVisionAprilTag aprilTagVision;
@@ -114,6 +113,8 @@ public class Vision
             opMode.hardwareMap.get(WebcamName.class, RobotParams.HWNAME_WEBCAM2): null;
         if (RobotParams.Preferences.tuneColorBlobVision)
         {
+            OpenCvCamera openCvCamera;
+
             if (RobotParams.Preferences.showVisionView)
             {
                 int cameraViewId = opMode.hardwareMap.appContext.getResources().getIdentifier(
@@ -230,9 +231,9 @@ public class Vision
      */
     public void setFpsMeterEnabled(boolean enabled)
     {
-        if (openCvCamera != null)
+        if (rawColorBlobVision != null)
         {
-            openCvCamera.showFpsMeterOnViewport(enabled);
+            rawColorBlobVision.setFpsMeterEnabled(enabled);
         }
         else if (vision != null)
         {
