@@ -135,6 +135,7 @@ public class Vision
             rawColorBlobVision = new FtcRawEocvVision(
                 "rawColorBlobVision", RobotParams.CAM_IMAGE_WIDTH, RobotParams.CAM_IMAGE_HEIGHT, null, null,
                 openCvCamera, RobotParams.CAM_ORIENTATION);
+            rawColorBlobVision.setFpsMeterEnabled(RobotParams.Preferences.showVisionStat);
             setRawColorBlobVisionEnabled(false);
         }
         else
@@ -192,7 +193,7 @@ public class Vision
                 // Use USB webcams.
                 vision = new FtcVision(
                     webcam1, webcam2, RobotParams.CAM_IMAGE_WIDTH, RobotParams.CAM_IMAGE_HEIGHT,
-                    RobotParams.Preferences.showVisionView, visionProcessors);
+                    RobotParams.Preferences.showVisionView, RobotParams.Preferences.showVisionStat, visionProcessors);
             }
             else
             {
@@ -201,7 +202,7 @@ public class Vision
                     RobotParams.Preferences.useBuiltinCamBack?
                         BuiltinCameraDirection.BACK: BuiltinCameraDirection.FRONT,
                     RobotParams.CAM_IMAGE_WIDTH, RobotParams.CAM_IMAGE_HEIGHT,
-                    RobotParams.Preferences.showVisionView, visionProcessors);
+                    RobotParams.Preferences.showVisionView, RobotParams.Preferences.showVisionStat, visionProcessors);
             }
             // Disable all vision until they are needed.
             for (VisionProcessor processor: visionProcessors)
@@ -209,8 +210,6 @@ public class Vision
                 vision.setProcessorEnabled(processor, false);
             }
         }
-
-        setFpsMeterEnabled(false);
     }   //Vision
 
     /**
