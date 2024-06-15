@@ -45,7 +45,7 @@ public class RobotParams
         MecanumRobot,
         SwerveRobot,
         NoRobot
-    }   //RobotType
+    }   // RobotType
 
     /**
      * This class contains robot preferences. It controls enabling/disabling of various robot features.
@@ -65,7 +65,6 @@ public class RobotParams
         // Vision
         public static boolean useWebCam = true;
         public static boolean hasWebCam2 = false;
-        public static boolean useBuiltinCamBack = false;
         public static boolean tuneColorBlobVision = false;
         public static boolean useAprilTagVision = false;
         public static boolean useColorBlobVision = false;
@@ -94,8 +93,8 @@ public class RobotParams
     //
     // Miscellaneous.
     public static final String HWNAME_IMU                       = "imu";
-    public static final String HWNAME_WEBCAM1                   = "Webcam 1";
-    public static final String HWNAME_WEBCAM2                   = "Webcam 2";
+    public static final String HWNAME_WEBCAM_FRONT              = "Webcam Front";
+    public static final String HWNAME_WEBCAM_BACK               = "Webcam Back";
     public static final String HWNAME_BLINKIN                   = "blinkin";
     // Drive Base.
     public static final String HWNAME_LFDRIVE_MOTOR             = "lfDriveMotor";
@@ -112,19 +111,22 @@ public class RobotParams
     public static final String HWNAME_RBSTEER_ENCODER           = "rbSteerEncoder";
     // Subsystems.
 
-    //
-    // Field dimensions.
-    //
+    // ------------------------------------------------------------------------------------------ //
+    // ------------------------------------ Field dimensions ------------------------------------ //
+    // ------------------------------------------------------------------------------------------ //
     public static final double FULL_FIELD_INCHES                = 141.24;
     public static final double HALF_FIELD_INCHES                = FULL_FIELD_INCHES/2.0;
     public static final double FULL_TILE_INCHES                 = FULL_FIELD_INCHES/6.0;
-    //
-    // Robot dimensions.
-    //
+
+    // ------------------------------------------------------------------------------------------ //
+    // ------------------------------------ Robot dimensions ------------------------------------ //
+    // ------------------------------------------------------------------------------------------ //
+    // TODO: Need to measure the Robot Dimensions
     public static final double ROBOT_LENGTH                     = 17.0;
     public static final double ROBOT_WIDTH                      = 17.0;
     public static final double DRIVE_BASE_LENGTH                = (24.0 * 14)*TrcUtil.INCHES_PER_MM;
     public static final double DRIVE_BASE_WIDTH                 = 16.0;
+
     //
     // Game related locations.
     //
@@ -134,38 +136,28 @@ public class RobotParams
         new TrcPose2D(0.0, 0.0, 0.0),   // TagId 3
         new TrcPose2D(0.0, 0.0, 0.0)    // TagId 4
     };
-    //
-    // Vision subsystem.
-    //
+
+    // ------------------------------------------------------------------------------------------ //
+    // ------------------------------------ Vision subsystem ------------------------------------ //
+    // ------------------------------------------------------------------------------------------ //
+    // Camera image size
     public static final int CAM_IMAGE_WIDTH                     = 640;
     public static final int CAM_IMAGE_HEIGHT                    = 480;
     public static final OpenCvCameraRotation CAM_ORIENTATION    = OpenCvCameraRotation.UPRIGHT;
-    // Camera location on robot.
-    public static final double CAM_X_OFFSET                     = 0.0;  //Camera right offset from robot centroid
-    public static final double CAM_Y_OFFSET                     = 2.0;  //Camera forward offset from robot centroid
-    public static final double CAM_Z_OFFSET                     = 9.75; //Camera height offset from floor
-    public static final double CAM_TILT_DOWN                    = 15.00;//Camera tilt down angle from horizontal in deg
-    public static final TrcPose2D CAM_POSE                      = new TrcPose2D(CAM_X_OFFSET, CAM_Y_OFFSET, 0.0);
-//    // Camera: Micorosoft Lifecam HD 3000 v1/v2
-//    public static final double WEBCAM_FX                        = 678.154;  // in pixels
-//    public static final double WEBCAM_FY                        = 678.170;  // in pixels
-//    public static final double WEBCAM_CX                        = 318.135;  // in pixels
-//    public static final double WEBCAM_CY                        = 228.374;  // in pixels
-//    // Camera: Logitech C270
-//    public static final double WEBCAM_FX                        = 822.317;  // in pixels
-//    public static final double WEBCAM_FY                        = 822.317;  // in pixels
-//    public static final double WEBCAM_CX                        = 319.495;  // in pixels
-//    public static final double WEBCAM_CY                        = 242.502;  // in pixels
-//    // Camera: Logitech C310
-//    public static final double WEBCAM_FX                        = 821.993;  // in pixels
-//    public static final double WEBCAM_FY                        = 821.993;  // in pixels
-//    public static final double WEBCAM_CX                        = 330.489;  // in pixels
-//    public static final double WEBCAM_CY                        = 248.997;  // in pixels
-//    // Camera: Logitech C920
-//    public static final double WEBCAM_FX                        = 622.001;  // in pixels
-//    public static final double WEBCAM_FY                        = 622.001;  // in pixels
-//    public static final double WEBCAM_CX                        = 319.803;  // in pixels
-//    public static final double WEBCAM_CY                        = 241.251;  // in pixels
+
+    // TODO: Need to measure the camera position offsets.
+    // Front Camera location on robot
+    public static final double FRONTCAM_X_OFFSET                = 0.0;
+    public static final double FRONTCAM_Y_OFFSET                = -(ROBOT_LENGTH/2.0 - 2.5);
+    public static final double FRONTCAM_Z_OFFSET                = 9.75;
+    public static final TrcPose2D FRONTCAM_POSE                 = new TrcPose2D(
+            FRONTCAM_X_OFFSET, FRONTCAM_Y_OFFSET, 0.0);
+    // Back Camera location on robot
+    public static final double BACKCAM_X_OFFSET                 = 0.0;
+    public static final double BACKCAM_Y_OFFSET                 = (ROBOT_LENGTH/2.0 - 2.125);
+    public static final double BACKCAM_Z_OFFSET                 = 6.25;
+    public static final TrcPose2D BACKCAM_POSE                  = new TrcPose2D(
+            BACKCAM_X_OFFSET, BACKCAM_Y_OFFSET, 180.0);
 
     // Measurement unit: pixels
     public static final double HOMOGRAPHY_CAMERA_TOPLEFT_X      = 0.0;

@@ -28,12 +28,12 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.vision.VisionProcessor;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
-import org.firstinspires.ftc.vision.tfod.TfodProcessor;
 import org.opencv.imgproc.Imgproc;
 import org.openftc.easyopencv.OpenCvCamera;
 import org.openftc.easyopencv.OpenCvCameraFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import TrcCommonLib.trclib.TrcDbgTrace;
 import TrcCommonLib.trclib.TrcOpenCvColorBlobPipeline;
@@ -48,54 +48,108 @@ import TrcFtcLib.ftclib.FtcVision;
 import TrcFtcLib.ftclib.FtcVisionAprilTag;
 import TrcFtcLib.ftclib.FtcVisionEocvColorBlob;
 import TrcFtcLib.ftclib.FtcVisionTensorFlow;
+import teamcode.FtcAuto;
 import teamcode.Robot;
 import teamcode.RobotParams;
 import teamcode.subsystems.BlinkinLEDs;
 
 /**
- * This class implements AprilTag/TensorFlow/Eocv Vision for the game season. It creates and initializes all the
+ * This class implements AprilTag/EasyOpenCV Vision for the game season. It creates and initializes all the
  * vision target info as well as providing info for the robot, camera and the field. It also provides methods to get
  * the location of the robot and detected targets.
  */
 public class Vision
 {
     private static final String moduleName = Vision.class.getSimpleName();
-    // Warning: EOCV converts camera stream to RGBA whereas Desktop OpenCV converts it to BGRA. Therefore, the correct
-    // color conversion must be RGBA (or RGB) to whatever color space you want to convert.
+
+    /**
+     * Declaring all types of Pixels
+     */
+    public enum PixelType
+    {
+        PurplePixel,
+        GreenPixel,
+        YellowPixel,
+        WhitePixel,
+        AnyPixel
+    }   // enum PixelType
+
+    // Warning: EasyOpenCV converts camera stream to RGBA whereas Desktop OpenCV converts it to
+    // BGRA. Therefore, the correct color conversion must be RGBA (or RGB) to whatever color space
+    // you want to convert.
     //
     // YCrCb Color Space.
     private static final int colorConversion = Imgproc.COLOR_RGB2YCrCb;
+    private static final double[] purplePixelColorThresholds = {60.0, 250.0, 120.0, 150.0, 140.0, 170.0};
+    private static final double[] greenPixelColorThresholds = {40.0, 200.0, 60.0, 120.0, 60.0, 120.0};
+    private static final double[] yellowPixelColorThresholds = {150.0, 250.0, 110.0, 160.0, 20.0, 100.0};
+    private static final double[] whitePixelColorThresholds = {250.0, 255.0, 100.0, 130.0, 120.0, 140.0};
     private static final double[] redBlobColorThresholds = {20.0, 120.0, 180.0, 240.0, 90.0, 120.0};
     private static final double[] blueBlobColorThresholds = {20.0, 250.0, 40.0, 250.0, 160.0, 240.0};
-    private static final TrcOpenCvColorBlobPipeline.FilterContourParams colorBlobFilterContourParams =
+
+    //    // HSV Color Space.
+    //    private static final int colorConversion = Imgproc.COLOR_RGB2HSV_FULL;
+    //    private static final double[] purplePixelColorThresholds = {170.0, 200.0, 40.0, 160.0, 100.0, 255.0};
+    //    private static final double[] greenPixelColorThresholds = {60.0, 120.0, 60.0, 255.0, 60.0, 255.0};
+    //    private static final double[] yellowPixelColorThresholds = {30.0, 60.0, 120.0, 225.0, 200.0, 255.0};
+    //    private static final double[] whitePixelColorThresholds = {70.0, 120.0, 0.0, 255.0, 230.0, 255.0};
+    //    private static final double[] redBlobColorThresholds = {0.0, 10.0, 120.0, 255.0, 100.0, 255.0};
+    //    private static final double[] blueBlobColorThresholds = {160.0, 200.0, 120.0, 255.0, 100.0, 255.0};
+
+    /**
+     * EasyOpenCV Pipeline for detecting pixels.
+     */
+    private static final TrcOpenCvColorBlobPipeline.FilterContourParams pixelFilterContourParams =
         new TrcOpenCvColorBlobPipeline.FilterContourParams()
-            .setMinArea(5000.0)
-            .setMinPerimeter(200.0)
-            .setWidthRange(50.0, 1000.0)
-            .setHeightRange(80.0, 1000.0)
+            .setMinArea(1000.0)
+                .setMinPerimeter(120.0)
+                .setWidthRange(50.0, 1000.0)
+                .setHeightRange(10.0, 1000.0)
+                .setSolidityRange(0.0, 100.0)
+                .setVerticesRange(0.0, 1000.0)
+                .setAspectRatioRange(0.2, 5.0);
+
+    /**
+     * EasyOpenCV Pipeline for detecting colour blobs. (Useful for detecting team prop.)
+     */
+    private static final TrcOpenCvColorBlobPipeline.FilterContourParams blobFilterContourParams =
+        new TrcOpenCvColorBlobPipeline.FilterContourParams()
+            .setMinArea(1000.0)
+            .setMinPerimeter(100.0)
+            .setWidthRange(20.0, 1000.0)
+            .setHeightRange(20.0, 1000.0)
             .setSolidityRange(0.0, 100.0)
             .setVerticesRange(0.0, 1000.0)
-            .setAspectRatioRange(0.3, 1.0);
+            .setAspectRatioRange(0.8, 1.25);
 
-    private static final String TFOD_MODEL_ASSET = "MyObject.tflite";
-    private static final float TFOD_MIN_CONFIDENCE = 0.75f;
-    public static final String TFOD_OBJECT_LABEL = "MyObject";
-    public static final String[] TFOD_TARGET_LABELS = {TFOD_OBJECT_LABEL};
+    // Variable declaration
+    private final TrcDbgTrace tracer;                   // Debug tracer to track errors
+    private final Robot robot;                          // Robot object
+    private final WebcamName webcamFront, webcamBack;   // Webcam objects
+    public FtcVision vision;                            // Vision object
 
-    private final TrcDbgTrace tracer;
-    private final Robot robot;
-    private final WebcamName webcam1, webcam2;
-    private FtcRawEocvColorBlobPipeline rawColorBlobPipeline;
-    public FtcRawEocvVision rawColorBlobVision;
+    // April Tags
     public FtcVisionAprilTag aprilTagVision;
     private AprilTagProcessor aprilTagProcessor;
+
+    // EasyOpenCV
+    private FtcRawEocvColorBlobPipeline rawColorBlobPipeline;
+    public FtcRawEocvVision rawColorBlobVision;
+    public FtcVisionEocvColorBlob purplePixelVision;
+    private FtcEocvColorBlobProcessor purplePixelProcessor;
+    public FtcVisionEocvColorBlob greenPixelVision;
+    private FtcEocvColorBlobProcessor greenPixelProcessor;
+    public FtcVisionEocvColorBlob yellowPixelVision;
+    private FtcEocvColorBlobProcessor yellowPixelProcessor;
+    public FtcVisionEocvColorBlob whitePixelVision;
+    private FtcEocvColorBlobProcessor whitePixelProcessor;
     public FtcVisionEocvColorBlob redBlobVision;
     private FtcEocvColorBlobProcessor redBlobProcessor;
     public FtcVisionEocvColorBlob blueBlobVision;
     private FtcEocvColorBlobProcessor blueBlobProcessor;
-    public FtcVisionTensorFlow tensorFlowVision;
-    private TfodProcessor tensorFlowProcessor;
-    public FtcVision vision;
+
+    // Detected Team Prop position
+    private int lastTeamPropPos = 0;
 
     /**
      * Constructor: Create an instance of the object.
@@ -104,116 +158,136 @@ public class Vision
      */
     public Vision(Robot robot)
     {
-        FtcOpMode opMode = FtcOpMode.getInstance();
+        FtcOpMode opMode = FtcOpMode.getInstance(); // Access the OpMode
 
+        // Initializing variables
         this.tracer = new TrcDbgTrace();
         this.robot = robot;
-        this.webcam1 = opMode.hardwareMap.get(WebcamName.class, RobotParams.HWNAME_WEBCAM1);
-        this.webcam2 = RobotParams.Preferences.hasWebCam2?
-            opMode.hardwareMap.get(WebcamName.class, RobotParams.HWNAME_WEBCAM2): null;
+        this.webcamFront = opMode.hardwareMap.get(WebcamName.class, RobotParams.HWNAME_WEBCAM_FRONT);
+        this.webcamBack = RobotParams.Preferences.hasWebCam2?
+                opMode.hardwareMap.get(WebcamName.class, RobotParams.HWNAME_WEBCAM_BACK): null;
+
+        // When the Colour Blob vision needs to be tuned
         if (RobotParams.Preferences.tuneColorBlobVision)
         {
-            OpenCvCamera openCvCamera;
+            OpenCvCamera openCvCamera; // Declare OpenCV Camera
 
+            // If Vision view should be displayed
             if (RobotParams.Preferences.showVisionView)
             {
                 int cameraViewId = opMode.hardwareMap.appContext.getResources().getIdentifier(
-                    "cameraMonitorViewId", "id", opMode.hardwareMap.appContext.getPackageName());
-                openCvCamera = OpenCvCameraFactory.getInstance().createWebcam(webcam1, cameraViewId);
+                        "cameraMonitorViewId", "id", opMode.hardwareMap.appContext.getPackageName());
+                openCvCamera = OpenCvCameraFactory.getInstance().createWebcam(webcamFront, cameraViewId);
             }
+            // If Vision view should not be displayed
             else
             {
-                openCvCamera = OpenCvCameraFactory.getInstance().createWebcam(webcam1);
+                openCvCamera = OpenCvCameraFactory.getInstance().createWebcam(webcamFront);
             }
 
-            tracer.traceInfo(moduleName, "Starting RawEocvColorBlobVision...");
+            tracer.traceInfo(moduleName, "Starting RawEocvColorBlobVision..."); // Tracer
             rawColorBlobPipeline = new FtcRawEocvColorBlobPipeline(
-                "rawColorBlobPipeline", colorConversion, redBlobColorThresholds, colorBlobFilterContourParams, true);
+                    "rawColorBlobPipeline", colorConversion, whitePixelColorThresholds, pixelFilterContourParams, true);
+
             // By default, display original Mat.
             rawColorBlobPipeline.setVideoOutput(0);
             rawColorBlobPipeline.setAnnotateEnabled(true);
             rawColorBlobVision = new FtcRawEocvVision(
-                "rawColorBlobVision", RobotParams.CAM_IMAGE_WIDTH, RobotParams.CAM_IMAGE_HEIGHT, null, null,
-                openCvCamera, RobotParams.CAM_ORIENTATION);
-            rawColorBlobVision.setFpsMeterEnabled(RobotParams.Preferences.showVisionStat);
+                    "rawColorBlobVision", RobotParams.CAM_IMAGE_WIDTH, RobotParams.CAM_IMAGE_HEIGHT, null, null,
+                    openCvCamera, RobotParams.CAM_ORIENTATION);
+            rawColorBlobVision.setFpsMeterEnabled(RobotParams.Preferences.showVisionStat); // Show vision information
             setRawColorBlobVisionEnabled(false);
-        }
+        } // End if RobotParams.Preferences.tuneColorBlobVision
+
         else
         {
-            // Creating Vision Processors for VisionPortal.
+            // Creating Vision Processors for VisionPortal
             ArrayList<VisionProcessor> visionProcessorsList = new ArrayList<>();
 
+            // For using April Tags
             if (RobotParams.Preferences.useAprilTagVision)
             {
-                tracer.traceInfo(moduleName, "Starting AprilTagVision...");
+                tracer.traceInfo(moduleName, "Starting AprilTagVision..."); // Tracer
+
+                // Set April Tag Params
                 FtcVisionAprilTag.Parameters aprilTagParams = new FtcVisionAprilTag.Parameters()
-                    .setDrawTagIdEnabled(true)
-                    .setDrawTagOutlineEnabled(true)
-                    .setDrawAxesEnabled(false)
-                    .setDrawCubeProjectionEnabled(false)
-//                    .setLensIntrinsics(
-//                        RobotParams.WEBCAM_FX, RobotParams.WEBCAM_FY, RobotParams.WEBCAM_CX, RobotParams.WEBCAM_CY)
-                    .setOutputUnits(DistanceUnit.INCH, AngleUnit.DEGREES);
+                        .setDrawTagIdEnabled(true)
+                        .setDrawTagOutlineEnabled(true)
+                        .setDrawAxesEnabled(false)
+                        .setDrawCubeProjectionEnabled(false)
+                        .setOutputUnits(DistanceUnit.INCH, AngleUnit.DEGREES);
                 aprilTagVision = new FtcVisionAprilTag(aprilTagParams, AprilTagProcessor.TagFamily.TAG_36h11);
                 aprilTagProcessor = aprilTagVision.getVisionProcessor();
                 visionProcessorsList.add(aprilTagProcessor);
-            }
+            } // End if April Tags detection
 
+            // For using Pixel and Colour Blob (team prop) detection
             if (RobotParams.Preferences.useColorBlobVision)
             {
-                tracer.traceInfo(moduleName, "Starting ColorBlobVision...");
+                tracer.traceInfo(moduleName, "Starting ColorBlobVision..."); // Tracer
 
+                // Set Purple Pixel Params
+                purplePixelVision = new FtcVisionEocvColorBlob(
+                        "PurplePixel", colorConversion, purplePixelColorThresholds, pixelFilterContourParams, true,
+                        RobotParams.cameraRect, RobotParams.worldRect, true);
+                purplePixelProcessor = purplePixelVision.getVisionProcessor();
+                visionProcessorsList.add(purplePixelProcessor);
+
+                // Set Green Pixel Params
+                greenPixelVision = new FtcVisionEocvColorBlob(
+                        "GreenPixel", colorConversion, greenPixelColorThresholds, pixelFilterContourParams, true,
+                        RobotParams.cameraRect, RobotParams.worldRect, true);
+                greenPixelProcessor = greenPixelVision.getVisionProcessor();
+                visionProcessorsList.add(greenPixelProcessor);
+
+                // Set Yellow Pixel Params
+                yellowPixelVision = new FtcVisionEocvColorBlob(
+                        "YellowPixel", colorConversion, yellowPixelColorThresholds, pixelFilterContourParams, true,
+                        RobotParams.cameraRect, RobotParams.worldRect, true);
+                yellowPixelProcessor = yellowPixelVision.getVisionProcessor();
+                visionProcessorsList.add(yellowPixelProcessor);
+
+                // Set White Pixel Params
+                whitePixelVision = new FtcVisionEocvColorBlob(
+                        "WhitePixel", colorConversion, whitePixelColorThresholds, pixelFilterContourParams, true,
+                        RobotParams.cameraRect, RobotParams.worldRect, true);
+                whitePixelProcessor = whitePixelVision.getVisionProcessor();
+                visionProcessorsList.add(whitePixelProcessor);
+
+                // Set Red Blob Params
                 redBlobVision = new FtcVisionEocvColorBlob(
-                    "RedBlob", colorConversion, redBlobColorThresholds, colorBlobFilterContourParams, true,
-                    RobotParams.cameraRect, RobotParams.worldRect, true);
+                        "RedBlob", colorConversion, redBlobColorThresholds, blobFilterContourParams, true,
+                        RobotParams.cameraRect, RobotParams.worldRect, true);
                 redBlobProcessor = redBlobVision.getVisionProcessor();
                 visionProcessorsList.add(redBlobProcessor);
 
+                // Set Blue Blob Params
                 blueBlobVision = new FtcVisionEocvColorBlob(
-                    "BlueBlob", colorConversion, blueBlobColorThresholds, colorBlobFilterContourParams, true,
-                    RobotParams.cameraRect, RobotParams.worldRect, true);
+                        "BlueBlob", colorConversion, blueBlobColorThresholds, blobFilterContourParams, true,
+                        RobotParams.cameraRect, RobotParams.worldRect, true);
                 blueBlobProcessor = blueBlobVision.getVisionProcessor();
                 visionProcessorsList.add(blueBlobProcessor);
-            }
+            } // End if Pixel and Colour Blob (team prop) detection
 
-            if (RobotParams.Preferences.useTensorFlowVision)
-            {
-                tracer.traceInfo(moduleName, "Starting TensorFlowVision...");
-                tensorFlowVision = new FtcVisionTensorFlow(
-                    null, true, TFOD_MODEL_ASSET, TFOD_TARGET_LABELS, RobotParams.cameraRect, RobotParams.worldRect);
-                tensorFlowProcessor = tensorFlowVision.getVisionProcessor();
-                tensorFlowProcessor.setMinResultConfidence(TFOD_MIN_CONFIDENCE);
-                visionProcessorsList.add(tensorFlowProcessor);
-            }
-
+            // Convert arrayList of processors into array
             VisionProcessor[] visionProcessors = new VisionProcessor[visionProcessorsList.size()];
             visionProcessorsList.toArray(visionProcessors);
-            if (RobotParams.Preferences.useWebCam)
-            {
-                // Use USB webcams.
-                vision = new FtcVision(
-                    webcam1, webcam2, RobotParams.CAM_IMAGE_WIDTH, RobotParams.CAM_IMAGE_HEIGHT,
+
+            // Set Vision
+            vision = new FtcVision(
+                    webcamFront, webcamBack, RobotParams.CAM_IMAGE_WIDTH, RobotParams.CAM_IMAGE_HEIGHT,
                     RobotParams.Preferences.showVisionView, RobotParams.Preferences.showVisionStat, visionProcessors);
-            }
-            else
-            {
-                // Use phone camera.
-                vision = new FtcVision(
-                    RobotParams.Preferences.useBuiltinCamBack?
-                        BuiltinCameraDirection.BACK: BuiltinCameraDirection.FRONT,
-                    RobotParams.CAM_IMAGE_WIDTH, RobotParams.CAM_IMAGE_HEIGHT,
-                    RobotParams.Preferences.showVisionView, RobotParams.Preferences.showVisionStat, visionProcessors);
-            }
+
             // Disable all vision until they are needed.
             for (VisionProcessor processor: visionProcessors)
             {
                 vision.setProcessorEnabled(processor, false);
             }
-        }
-    }   //Vision
+        } // End else
+    } // Vision
 
     /**
-     * This method closes the vision portal and is normally called at the end of an opmode.
+     * This method closes the vision portal and is normally called at the end of an OpMode.
      */
     public void close()
     {
@@ -221,7 +295,7 @@ public class Vision
         {
             vision.getVisionPortal().close();
         }
-    }   //close
+    } // close
 
     /**
      * This method enables/disables FPS meter on the viewport.
@@ -238,7 +312,7 @@ public class Vision
         {
             vision.setFpsMeterEnabled(enabled);
         }
-    }   //setFpsMeterEnabled
+    } // setFpsMeterEnabled
 
     /**
      * This method returns the front webcam.
@@ -247,8 +321,8 @@ public class Vision
      */
     public WebcamName getFrontWebcam()
     {
-        return webcam1;
-    }   //getFrontWebcam
+        return webcamFront;
+    } // getFrontWebcam
 
     /**
      * This method returns the rear webcam.
@@ -257,8 +331,8 @@ public class Vision
      */
     public WebcamName getRearWebcam()
     {
-        return webcam2;
-    }   //getRearWebcam
+        return webcamBack;
+    } // getRearWebcam
 
     /**
      * This method returns the active camera if we have two webcams.
@@ -268,7 +342,7 @@ public class Vision
     public WebcamName getActiveWebcam()
     {
         return vision.getActiveWebcam();
-    }   //getActiveWebcam
+    } // getActiveWebcam
 
     /**
      * This method sets the active webcam.
@@ -278,7 +352,7 @@ public class Vision
     public void setActiveWebcam(WebcamName webcam)
     {
         vision.setActiveWebcam(webcam);
-    }   //setActiveWebcam
+    } // setActiveWebcam
 
     /**
      * This method displays the exposure settings on the dashboard. This helps tuning camera exposure.
@@ -296,7 +370,7 @@ public class Vision
             lineNum, "Exp: %d (%d:%d), Gain: %d (%d:%d)",
             currExposure, exposureSetting[0], exposureSetting[1],
             currGain, gainSetting != null? gainSetting[0]: 0, gainSetting != null? gainSetting[1]: 0);
-    }   //displayExposureSettings
+    } // displayExposureSettings
 
     /**
      * This method returns the color threshold values of rawColorBlobVision.
@@ -306,21 +380,21 @@ public class Vision
     public double[] getRawColorBlobThresholds()
     {
         return rawColorBlobPipeline != null? rawColorBlobPipeline.getColorThresholds(): null;
-    }   //getRawColorBlobThresholds
+    } // getRawColorBlobThresholds
 
     /**
      * This method sets the color threshold values of rawColorBlobVision.
      *
      * @param colorThresholds specifies an array of color threshold values.
      */
+    @SuppressWarnings("unused")
     public void setRawColorBlobThresholds(double... colorThresholds)
     {
         if (rawColorBlobPipeline != null)
         {
             rawColorBlobPipeline.setColorThresholds(colorThresholds);
         }
-    }   //setRawColorBlobThresholds
-
+    } // setRawColorBlobThresholds
 
     /**
      * This method enables/disables raw ColorBlob vision.
@@ -333,23 +407,25 @@ public class Vision
         {
             rawColorBlobVision.setPipeline(enabled? rawColorBlobPipeline: null);
         }
-    }   //setRawColorBlobVisionEnabled
+    } // setRawColorBlobVisionEnabled
 
     /**
      * This method checks if raw ColorBlob vision is enabled.
      *
      * @return true if enabled, false if disabled.
      */
+    @SuppressWarnings("unused")
     public boolean isRawColorBlobVisionEnabled()
     {
         return rawColorBlobVision != null && rawColorBlobVision.getPipeline() != null;
-    }   //isRawColorBlobVisionEnabled
+    } // isRawColorBlobVisionEnabled
 
     /**
      * This method calls RawColorBlob vision to detect the color blob for color threshold tuning.
      *
      * @param lineNum specifies the dashboard line number to display the detected object info, -1 to disable printing.
      * @return detected raw color blob object info.
+     * @noinspection UnusedReturnValue
      */
     public TrcVisionTargetInfo<TrcOpenCvDetector.DetectedObject<?>> getDetectedRawColorBlob(int lineNum)
     {
@@ -363,7 +439,7 @@ public class Vision
         }
 
         return colorBlobInfo;
-    }   //getDetectedRawColorBlob
+    } // getDetectedRawColorBlob
 
     /**
      * This method enables/disables AprilTag vision.
@@ -376,17 +452,18 @@ public class Vision
         {
             vision.setProcessorEnabled(aprilTagProcessor, enabled);
         }
-    }   //setAprilTagVisionEnabled
+    } // setAprilTagVisionEnabled
 
     /**
      * This method checks if AprilTag vision is enabled.
      *
      * @return true if enabled, false if disabled.
      */
+    @SuppressWarnings("unused")
     public boolean isAprilTagVisionEnabled()
     {
         return aprilTagProcessor != null && vision.isVisionProcessorEnabled(aprilTagProcessor);
-    }   //isAprilTagVisionEnabled
+    } // isAprilTagVisionEnabled
 
     /**
      * This method calls AprilTag vision to detect the AprilTag object.
@@ -398,7 +475,7 @@ public class Vision
     public TrcVisionTargetInfo<FtcVisionAprilTag.DetectedObject> getDetectedAprilTag(Integer id, int lineNum)
     {
         TrcVisionTargetInfo<FtcVisionAprilTag.DetectedObject> aprilTagInfo =
-            aprilTagVision.getBestDetectedTargetInfo(id, null);
+                aprilTagVision.getBestDetectedTargetInfo(id, null);
 
         if (aprilTagInfo != null && robot.blinkin != null)
         {
@@ -408,11 +485,11 @@ public class Vision
         if (lineNum != -1)
         {
             robot.dashboard.displayPrintf(
-                lineNum, "%s: %s", BlinkinLEDs.APRIL_TAG, aprilTagInfo != null? aprilTagInfo : "Not found.");
+                lineNum, "%s: %s", BlinkinLEDs.APRIL_TAG, aprilTagInfo != null? aprilTagInfo: "Not found.");
         }
 
         return aprilTagInfo;
-    }   //getDetectedAprilTag
+    } // getDetectedAprilTag
 
     /**
      * This method calculates the robot's absolute field location with the detected AprilTagInfo.
@@ -428,18 +505,18 @@ public class Vision
         {
             TrcPose2D aprilTagPose = RobotParams.APRILTAG_POSES[aprilTagInfo.detectedObj.aprilTagDetection.id - 1];
             TrcPose2D cameraPose = aprilTagPose.subtractRelativePose(aprilTagInfo.objPose);
-            robotPose = cameraPose.subtractRelativePose(RobotParams.CAM_POSE);
+            robotPose = cameraPose.subtractRelativePose(RobotParams.BACKCAM_POSE);
             tracer.traceInfo(
                 moduleName,
                 "AprilTagId=" + aprilTagInfo.detectedObj.aprilTagDetection.id +
-                ", aprilTagFieldPose=" + aprilTagPose +
-                ", aprilTagPoseFromCamera=" + aprilTagInfo.objPose +
-                ", cameraPose=" + cameraPose +
-                ", robotPose=%s" + robotPose);
+                        ", aprilTagFieldPose=" + aprilTagPose +
+                        ", aprilTagPoseFromCamera=" + aprilTagInfo.objPose +
+                        ", cameraPose=" + cameraPose +
+                        ", robotPose=%s" + robotPose);
         }
 
         return robotPose;
-    }   //getRobotFieldPose
+    } // getRobotFieldPose
 
     /**
      * This method uses vision to find an AprilTag and uses the AprilTag's absolute field location and its relative
@@ -463,7 +540,215 @@ public class Vision
         }
 
         return robotPose;
-    }   //getRobotFieldPose
+    } // getRobotFieldPose
+
+    /**
+     * This method enables/disables vision for the specified pixel type.
+     *
+     * @param pixelType specifies the pixel type to be detected.
+     * @param enabled specifies true to enable, false to disable.
+     */
+    @SuppressWarnings("unused")
+    public void setPixelVisionEnabled(PixelType pixelType, boolean enabled)
+    {
+        switch (pixelType)
+        {
+            case PurplePixel:
+                if (purplePixelProcessor != null)
+                {
+                    vision.setProcessorEnabled(purplePixelProcessor, enabled);
+                }
+                break;
+
+            case GreenPixel:
+                if (greenPixelProcessor != null)
+                {
+                    vision.setProcessorEnabled(greenPixelProcessor, enabled);
+                }
+                break;
+
+            case YellowPixel:
+                if (yellowPixelProcessor != null)
+                {
+                    vision.setProcessorEnabled(yellowPixelProcessor, enabled);
+                }
+                break;
+
+            case WhitePixel:
+                if (whitePixelProcessor != null)
+                {
+                    vision.setProcessorEnabled(whitePixelProcessor, enabled);
+                }
+                break;
+
+            case AnyPixel:
+                if (purplePixelProcessor != null)
+                {
+                    vision.setProcessorEnabled(purplePixelProcessor, enabled);
+                }
+                if (greenPixelProcessor != null)
+                {
+                    vision.setProcessorEnabled(greenPixelProcessor, enabled);
+                }
+                if (yellowPixelProcessor != null)
+                {
+                    vision.setProcessorEnabled(yellowPixelProcessor, enabled);
+                }
+                if (whitePixelProcessor != null)
+                {
+                    vision.setProcessorEnabled(whitePixelProcessor, enabled);
+                }
+                break;
+        }
+    } // setPixelVisionEnabled
+
+    /**
+     * This method checks if vision is enabled for the specified pixel type.
+     *
+     * @param pixelType specifies the pixel type to be detected.
+     * @return true if enabled, false if disabled.
+     */
+    @SuppressWarnings("unused")
+    public boolean isPixelVisionEnabled(PixelType pixelType)
+    {
+        boolean enabled = false;
+
+        switch (pixelType)
+        {
+            case PurplePixel:
+                enabled = purplePixelProcessor != null && vision.isVisionProcessorEnabled(purplePixelProcessor);
+                break;
+
+            case GreenPixel:
+                enabled = greenPixelProcessor != null && vision.isVisionProcessorEnabled(greenPixelProcessor);
+                break;
+
+            case YellowPixel:
+                enabled = yellowPixelProcessor != null && vision.isVisionProcessorEnabled(yellowPixelProcessor);
+                break;
+
+            case WhitePixel:
+                enabled = whitePixelProcessor != null && vision.isVisionProcessorEnabled(whitePixelProcessor);
+                break;
+
+            case AnyPixel:
+                enabled = purplePixelProcessor != null && vision.isVisionProcessorEnabled(purplePixelProcessor) ||
+                        greenPixelProcessor != null && vision.isVisionProcessorEnabled(greenPixelProcessor) ||
+                        yellowPixelProcessor != null && vision.isVisionProcessorEnabled(yellowPixelProcessor) ||
+                        whitePixelProcessor != null && vision.isVisionProcessorEnabled(whitePixelProcessor);
+                break;
+        }
+
+        return enabled;
+    } // isPixelVisionEnabled
+
+    /**
+     * This method calls ColorBlob vision to detect the specified Pixel object.
+     *
+     * @param pixelType specifies the pixel type to be detected.
+     * @param lineNum specifies the dashboard line number to display the detected object info, -1 to disable printing.
+     * @return detected Purple Pixel object info.
+     */
+    @SuppressWarnings("unused")
+    public TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> getDetectedPixel(
+            PixelType pixelType, int lineNum)
+    {
+        TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> pixelInfo = null;
+        String pixelName = null;
+
+        switch (pixelType)
+        {
+            // For detecting Purple pixel
+            case PurplePixel:
+                pixelInfo = purplePixelVision != null? purplePixelVision.getBestDetectedTargetInfo(
+                        this::validatePixel, this::compareDistance, 0.0, 0.0): null;
+//                pixelName = BlinkinLEDs.PURPLE_PIXEL;
+                break;
+
+            // For detecting Green pixel
+            case GreenPixel:
+                pixelInfo = greenPixelVision != null? greenPixelVision.getBestDetectedTargetInfo(
+                        this::validatePixel, this::compareDistance, 0.0, 0.0): null;
+//                pixelName = BlinkinLEDs.GREEN_PIXEL;
+                break;
+
+            // For detecting Yellow pixel
+            case YellowPixel:
+                pixelInfo = yellowPixelVision != null? yellowPixelVision.getBestDetectedTargetInfo(
+                        this::validatePixel, this::compareDistance, 0.0, 0.0): null;
+//                pixelName = BlinkinLEDs.YELLOW_PIXEL;
+                break;
+
+            // For detecting White pixel
+            case WhitePixel:
+                pixelInfo = whitePixelVision != null? whitePixelVision.getBestDetectedTargetInfo(
+                        this::validatePixel, this::compareDistance, 0.0, 0.0): null;
+//                pixelName = BlinkinLEDs.WHITE_PIXEL;
+                break;
+
+            // For detecting Any pixels
+            case AnyPixel:
+                ArrayList<TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject>> pixelList = new ArrayList<>();
+
+                // Is pixel Purple? If yes, save pixel info
+                pixelInfo = purplePixelVision != null? purplePixelVision.getBestDetectedTargetInfo(
+                        this::validatePixel, this::compareDistance, 0.0, 0.0): null;
+                if (pixelInfo != null)
+                {
+                    pixelList.add(pixelInfo);
+                }
+
+                // Is pixel Green? If yes, save pixel info
+                pixelInfo = greenPixelVision != null? greenPixelVision.getBestDetectedTargetInfo(
+                        this::validatePixel, this::compareDistance, 0.0, 0.0): null;
+                if (pixelInfo != null)
+                {
+                    pixelList.add(pixelInfo);
+                }
+
+                // Is pixel Yellow? If yes, save pixel info
+                pixelInfo = yellowPixelVision != null? yellowPixelVision.getBestDetectedTargetInfo(
+                        this::validatePixel, this::compareDistance, 0.0, 0.0): null;
+                if (pixelInfo != null)
+                {
+                    pixelList.add(pixelInfo);
+                }
+
+                // Is pixel White? If yes, save pixel info
+                pixelInfo = whitePixelVision != null? whitePixelVision.getBestDetectedTargetInfo(
+                        this::validatePixel, this::compareDistance, 0.0, 0.0): null;
+                if (pixelInfo != null)
+                {
+                    pixelList.add(pixelInfo);
+                }
+
+                // Convert saved pixels to array, and save the closest pixels in terms of distance
+                TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject>[] pixels =
+                    new TrcVisionTargetInfo[pixelList.size()];
+                pixelList.toArray(pixels);
+                if (pixels.length > 1)
+                {
+                    Arrays.sort(pixels, this::compareDistance);
+                }
+                pixelInfo = pixels[0];
+                pixelName = pixelInfo.detectedObj.label;
+                break;
+        }
+
+        // Set blinkin pattern dependant on pixel colour
+        if (pixelInfo != null && robot.blinkin != null)
+        {
+            robot.blinkin.setDetectedPattern(pixelName);
+        }
+
+        if (lineNum != -1)
+        {
+            robot.dashboard.displayPrintf(
+                    lineNum, "%s: %s", pixelName, pixelInfo != null? pixelInfo: "Not found.");
+        }
+
+        return pixelInfo;
+    } // getDetectedPixel
 
     /**
      * This method enables/disables RedBlob vision.
@@ -476,7 +761,7 @@ public class Vision
         {
             vision.setProcessorEnabled(redBlobProcessor, enabled);
         }
-    }   //setRedBlobVisionEnabled
+    } // setRedBlobVisionEnabled
 
     /**
      * This method checks if RedBlob vision is enabled.
@@ -489,31 +774,6 @@ public class Vision
     }   //isRedBlobVisionEnabled
 
     /**
-     * This method calls ColorBlob vision to detect the Red Blob object.
-     *
-     * @param lineNum specifies the dashboard line number to display the detected object info, -1 to disable printing.
-     * @return detected Red Blob object info.
-     */
-    public TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> getDetectedRedBlob(int lineNum)
-    {
-        TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> colorBlobInfo =
-            redBlobVision.getBestDetectedTargetInfo(null, null, 0.0, 0.0);
-
-        if (colorBlobInfo != null && robot.blinkin != null)
-        {
-            robot.blinkin.setDetectedPattern(BlinkinLEDs.RED_BLOB);
-        }
-
-        if (lineNum != -1)
-        {
-            robot.dashboard.displayPrintf(
-                lineNum, "%s: %s", BlinkinLEDs.RED_BLOB, colorBlobInfo != null? colorBlobInfo: "Not found.");
-        }
-
-        return colorBlobInfo;
-    }   //getDetectedRedBlob
-
-    /**
      * This method enables/disables BlueBlob vision.
      *
      * @param enabled specifies true to enable, false to disable.
@@ -524,7 +784,7 @@ public class Vision
         {
             vision.setProcessorEnabled(blueBlobProcessor, enabled);
         }
-    }   //setBlueBlobVisionEnabled
+    } // setBlueBlobVisionEnabled
 
     /**
      * This method checks if BlueBlob vision is enabled.
@@ -534,80 +794,97 @@ public class Vision
     public boolean isBlueBlobVisionEnabled()
     {
         return blueBlobProcessor != null && vision.isVisionProcessorEnabled(blueBlobProcessor);
-    }   //isBlueBlobVisionEnabled
+    } // isBlueBlobVisionEnabled
 
     /**
-     * This method calls ColorBlob vision to detect the Blue Blob object.
+     * This method detects the team prop and determine its position.
      *
+     * @param alliance specifies the alliance color to look for team prop.
      * @param lineNum specifies the dashboard line number to display the detected object info, -1 to disable printing.
-     * @return detected Blue Blob object info.
+     * @return team prop position 1, 2, or 3, 0 if not found.
      */
-    public TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> getDetectedBlueBlob(int lineNum)
+    public int getDetectedTeamPropPosition(FtcAuto.Alliance alliance, int lineNum)
     {
-        TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> colorBlobInfo =
-            blueBlobVision.getBestDetectedTargetInfo(null, null, 0.0, 0.0);
+        int pos = 0;
+        TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> teamPropInfo = null;
 
-        if (colorBlobInfo != null && robot.blinkin != null)
+        if (alliance == FtcAuto.Alliance.RED_ALLIANCE)
         {
-            robot.blinkin.setDetectedPattern(BlinkinLEDs.BLUE_BLOB);
+            if (redBlobVision != null)
+            {
+                teamPropInfo = redBlobVision.getBestDetectedTargetInfo(null, null, 0.0, 0.0);
+            }
+        }
+        else
+        {
+            if (blueBlobVision != null)
+            {
+                teamPropInfo = blueBlobVision.getBestDetectedTargetInfo(null, null, 0.0, 0.0);
+            }
+        }
+
+        if (teamPropInfo != null)
+        {
+            double teamPropXPos = teamPropInfo.objRect.x + teamPropInfo.objRect.width/2.0;
+            double oneThirdScreenWidth = RobotParams.CAM_IMAGE_WIDTH/3.0;
+            String ledLabel = null;
+
+            if (teamPropXPos < oneThirdScreenWidth)
+            {
+                pos = 1;
+            }
+            else if (teamPropXPos < oneThirdScreenWidth*2)
+            {
+                pos = 2;
+            }
+            else
+            {
+                pos = 3;
+            }
+
+            if (robot.blinkin != null)
+            {
+                robot.blinkin.setDetectedPattern(ledLabel);
+            }
         }
 
         if (lineNum != -1)
         {
             robot.dashboard.displayPrintf(
-                lineNum, "%s: %s", BlinkinLEDs.BLUE_BLOB, colorBlobInfo != null? colorBlobInfo: "Not found.");
+                    lineNum, "%s: %s (pos=%d)",
+                    alliance == FtcAuto.Alliance.RED_ALLIANCE? "RedBlob": "BlueBlob",
+                    teamPropInfo != null? teamPropInfo: "Not found", pos);
         }
 
-        return colorBlobInfo;
-    }   //getDetectedBlueBlob
+        if (pos != 0)
+        {
+            lastTeamPropPos = pos;
+        }
+
+        return pos;
+    } // getDetectedTeamPropPosition
 
     /**
-     * This method enables/disables TensorFlow vision.
+     * This method returns the last detected team prop position.
      *
-     * @param enabled specifies true to enable, false to disable.
+     * @return last team prop position, 0 if never detected it.
      */
-    public void setTensorFlowVisionEnabled(boolean enabled)
+    public int getLastDetectedTeamPropPosition()
     {
-        if (tensorFlowProcessor != null)
-        {
-            vision.setProcessorEnabled(tensorFlowProcessor, enabled);
-        }
-    }   //setTensorFlowVisionEnabled
+        return lastTeamPropPos;
+    } // getLastDetectedTeamPropPosition
 
     /**
-     * This method checks if TensorFlow vision is enabled.
+     * This method validates the detected pixel is really a pixel by checking its physical width to be about 3 inches.
      *
-     * @return true if enabled, false if disabled.
+     * @param pixelInfo specifies the detected pixel info object.
+     * @return true if it passes the test, false otherwise.
      */
-    public boolean isTensorFlowVisionEnabled()
+    public boolean validatePixel(TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> pixelInfo)
     {
-        return tensorFlowProcessor != null && vision.isVisionProcessorEnabled(tensorFlowProcessor);
-    }   //isTensorFlowVisionEnabled
-
-    /**
-     * This method calls TensorFlow vision to detect the Pixel objects.
-     *
-     * @param lineNum specifies the dashboard line number to display the detected object info, -1 to disable printing.
-     * @return detected Pixel object info.
-     */
-    public TrcVisionTargetInfo<FtcVisionTensorFlow.DetectedObject> getDetectedTensorFlowPixel(int lineNum)
-    {
-        TrcVisionTargetInfo<FtcVisionTensorFlow.DetectedObject> tensorFlowInfo =
-            tensorFlowVision.getBestDetectedTargetInfo(TFOD_OBJECT_LABEL, null, this::compareConfidence, 0.0, 0.0);
-
-        if (tensorFlowInfo != null && robot.blinkin != null)
-        {
-            robot.blinkin.setDetectedPattern(BlinkinLEDs.TENSOR_FLOW);
-        }
-
-        if (lineNum != -1)
-        {
-            robot.dashboard.displayPrintf(
-                lineNum, "%s: %s", BlinkinLEDs.TENSOR_FLOW, tensorFlowInfo != null? tensorFlowInfo: "Not found.");
-        }
-
-        return tensorFlowInfo;
-    }   //getDetectedTensorFlowPixel
+        // Pixel is 3-inch wide.
+        return pixelInfo.objWidth > 2.0 && pixelInfo.objWidth < 4.0;
+    } // validatePixel
 
     /**
      * This method is called by the Arrays.sort to sort the target object by increasing distance.
@@ -618,11 +895,11 @@ public class Vision
      *         if a has higher distance than b.
      */
     private int compareDistance(
-        TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> a,
-        TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> b)
+            TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> a,
+            TrcVisionTargetInfo<TrcOpenCvColorBlobPipeline.DetectedObject> b)
     {
         return (int)((b.objPose.y - a.objPose.y)*100);
-    }   //compareDistance
+    } // compareDistance
 
     /**
      * This method is called by the Arrays.sort to sort the target object by decreasing confidence.
@@ -633,10 +910,10 @@ public class Vision
      *         if a has lower confidence than b.
      */
     private int compareConfidence(
-        TrcVisionTargetInfo<FtcVisionTensorFlow.DetectedObject> a,
-        TrcVisionTargetInfo<FtcVisionTensorFlow.DetectedObject> b)
+            TrcVisionTargetInfo<FtcVisionTensorFlow.DetectedObject> a,
+            TrcVisionTargetInfo<FtcVisionTensorFlow.DetectedObject> b)
     {
         return (int)((b.detectedObj.confidence - a.detectedObj.confidence)*100);
-    }   //compareConfidence
+    } // compareConfidence
 
-}   //class Vision
+} // class Vision
