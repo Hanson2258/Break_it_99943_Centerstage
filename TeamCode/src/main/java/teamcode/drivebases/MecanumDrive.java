@@ -55,11 +55,11 @@ public class MecanumDrive extends RobotDrive
                     driveMotors[INDEX_RIGHT_BACK], RobotParams.X_ODWHEEL_Y_OFFSET, RobotParams.X_ODWHEEL_X_OFFSET),
                 new TrcOdometryWheels.AxisSensor[] {
                     new TrcOdometryWheels.AxisSensor(
-                        driveMotors[INDEX_LEFT_FRONT], RobotParams.YLEFT_ODWHEEL_X_OFFSET,
-                        RobotParams.YLEFT_ODWHEEL_Y_OFFSET),
+                        driveMotors[INDEX_LEFT_FRONT], RobotParams.Y_LEFT_ODWHEEL_X_OFFSET,
+                        RobotParams.Y_LEFT_ODWHEEL_Y_OFFSET),
                     new TrcOdometryWheels.AxisSensor(
-                        driveMotors[INDEX_RIGHT_FRONT], RobotParams.YRIGHT_ODWHEEL_X_OFFSET,
-                        RobotParams.YRIGHT_ODWHEEL_Y_OFFSET)},
+                        driveMotors[INDEX_RIGHT_FRONT], RobotParams.Y_RIGHT_ODWHEEL_X_OFFSET,
+                        RobotParams.Y_RIGHT_ODWHEEL_Y_OFFSET)},
                 gyro);
             // Set the drive base to use the external odometry device overriding the built-in one.
             driveBase.setDriveBaseOdometry(driveBaseOdometry);
@@ -67,15 +67,15 @@ public class MecanumDrive extends RobotDrive
         }
         else
         {
-            driveBase.setOdometryScales(RobotParams.XPOS_INCHES_PER_COUNT, RobotParams.YPOS_INCHES_PER_COUNT);
+            driveBase.setOdometryScales(RobotParams.X_POS_INCHES_PER_COUNT, RobotParams.Y_POS_INCHES_PER_COUNT);
         }
         //
         // Create and initialize PID controllers.
         //
         pidDrive = new TrcPidDrive(
             "pidDrive", driveBase,
-            RobotParams.xPosPidCoeff, RobotParams.XPOS_TOLERANCE, driveBase::getXPosition,
-            RobotParams.yPosPidCoeff, RobotParams.YPOS_TOLERANCE, driveBase::getYPosition,
+            RobotParams.xPosPidCoeff, RobotParams.X_POS_TOLERANCE, driveBase::getXPosition,
+            RobotParams.yPosPidCoeff, RobotParams.Y_POS_TOLERANCE, driveBase::getYPosition,
             RobotParams.turnPidCoeff, RobotParams.TURN_TOLERANCE, driveBase::getHeading);
         pidDrive.setStallDetectionEnabled(true);
         pidDrive.getXPidCtrl().setRampRate(RobotParams.X_RAMP_RATE);
