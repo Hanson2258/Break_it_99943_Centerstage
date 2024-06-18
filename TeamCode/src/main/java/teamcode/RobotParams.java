@@ -83,9 +83,11 @@ public class RobotParams
         public static boolean useSubsystems = robotType == RobotType.CenterStageRobot;
         public static boolean useIntake = false;
         public static boolean hasCollectedPixelsSensor = false;
+        public static boolean useArm = false;
         public static boolean useArmRotator = false;
         public static boolean useArmExtender = false;
         public static boolean useClaw = false;
+        public static boolean usePixelMover = false;
         public static boolean useLauncher = false;
         public static boolean useLifter = false;
     } // class Preferences
@@ -111,7 +113,15 @@ public class RobotParams
     public static final String HWNAME_RIGHT_BACK_WHEEL          = "backR";
 
     // Subsystems
-    // @TODO
+    // @TODO Check Validity
+    public static final String HWNAME_INTAKE                    = "intake";
+    public static final String HWNAME_ARM_ROTATOR               = "arm rotator";
+    public static final String HWNAME_ARM_EXTENDER              = "arm extender";
+    public static final String HWNAME_CLAW                      = "claw";
+    public static final String HWNAME_PIXEL_MOVER               = "pixel mover";
+    public static final String HWNAME_LAUNCHER                  = "launcher";
+    public static final String HWNAME_LIFTER                    = "lifter";
+
 
     // Sensors
     public static final String HWNAME_IMU                       = "imu";
@@ -347,6 +357,9 @@ public class RobotParams
 
     // ----- Claw -----
     // @TODO Claw Params
+
+    // ----- Pixel Mover -----
+    // @TODO Pixel Mover Params
 
     // ----- Airplane Launcher -----
     // @TODO Airplane Launcher Params
