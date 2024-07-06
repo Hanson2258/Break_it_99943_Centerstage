@@ -86,6 +86,8 @@ public class RobotParams
         public static boolean useArm = false;
         public static boolean useArmRotator = false;
         public static boolean useArmExtender = false;
+        public static boolean useWrist = false;
+        public static boolean useWristSensor = false;
         public static boolean useClaw = false;
         public static boolean usePixelMover = false;
         public static boolean useLauncher = false;
@@ -117,6 +119,7 @@ public class RobotParams
     public static final String HWNAME_INTAKE                    = "intake";
     public static final String HWNAME_ARM_ROTATOR               = "arm rotator";
     public static final String HWNAME_ARM_EXTENDER              = "arm extender";
+    public static final String HWNAME_WRIST                     = "wrist";
     public static final String HWNAME_CLAW                      = "claw";
     public static final String HWNAME_PIXEL_MOVER               = "pixel mover";
     public static final String HWNAME_LAUNCHER                  = "launcher";
@@ -350,10 +353,83 @@ public class RobotParams
     // @TODO Add Intake Params
 
     // ----- Arm Rotator -----
-    // @TODO Add Arm Rotator Params
+    // @TODO Tune Values
+    public static final boolean ARM_ROTATOR_MOTOR_INVERTED              = false;
+    public static final boolean ARM_ROTATOR_VOLTAGE_COMP_ENABLED        = true;
+    public static final double ARM_ROTATOR_DEG_PER_COUNT                = NEVEREST_40_RPM;
+    public static final double ARM_ROTATOR_OFFSET                       = 90.0; // Resting on the Robot
+    public static final double ARM_ROTATOR_STALL_DETECTION_DELAY        = 0.1;
+    public static final double ARM_ROTATOR_STALL_DETECTION_TIMEOUT      = 0.1;
+    public static final double ARM_ROTATOR_STALL_ERR_RATE_THRESHOLD     = 10.0;
+    // Power settings
+    public static final double ARM_ROTATOR_POWER_LIMIT                  = 0.5; // Ideally is 1
+    public static final double ARM_ROTATOR_CAL_POWER                    = -0.25; // Zero Calibration Power
+    // Preset positions
+    public static final double ARM_ROTATOR_MIN_DEG                      = ARM_ROTATOR_OFFSET;
+    public static final double ARM_ROTATOR_MAX_DEG                      = 150.0; // 180.0 Deg is pointing straight up
+    public static final double ARM_ROTATOR_LOAD_DEG                     = 90.0;
+    public static final double ARM_ROTATOR_SAFE_DEG                     = 100.0; // Position that the arm is safe to extend, and wrist is safe to rotate
+    public static final double ARM_ROTATOR_PRESET_TOLERANCE             = 5.0;
+    public static final double[] ARM_ROTATOR_PRESETS                    = new double[] {
+                                                                            ARM_ROTATOR_LOAD_DEG
+    };
+    // PID Actuator parameters
+    public static final double ARM_ROTATOR_KP                           = 0.0;
+    public static final double ARM_ROTATOR_KI                           = 0.0; // Unused
+    public static final double ARM_ROTATOR_KD                           = 0.0;
+    public static final double ARM_ROTATOR_KF                           = 0.0;
+    public static final double ARM_ROTATOR_IZONE                        = 0.0; // Unused
+    public static final double ARM_ROTATOR_TOLERANCE                    = 2.0;
+
+
 
     // ----- Arm Extender -----
-    // @TODO Add Arm Extender Params
+    // @TODO Tune Values
+    public static final boolean ARM_EXTENDER_MOTOR_INVERTED             = false;
+    public static final boolean ARM_EXTENDER_VOLTAGE_COMP_ENABLED       = true;
+    public static final double ARM_EXTENDER_ENCODER_PPR                 = NEVEREST_40_ENCODER_PPR;
+    public static final double ARM_EXTENDER_PULLEY_DIAMETER             = 1.405;
+    public static final double ARM_EXTENDER_PULLEY_CIRCUMFERENCE        = Math.PI*ARM_EXTENDER_PULLEY_DIAMETER;
+    public static final double ARM_EXTENDER_INCHES_PER_COUNT            = ARM_EXTENDER_PULLEY_CIRCUMFERENCE/ARM_EXTENDER_ENCODER_PPR;
+    public static final double ARM_EXTENDER_OFFSET                      = 0.0; // Default starting position
+    public static final double ARM_EXTENDER_STALL_DETECTION_DELAY       = 0.1;
+    public static final double ARM_EXTENDER_STALL_DETECTION_TIMEOUT     = 0.1;
+    public static final double ARM_EXTENDER_STALL_ERR_RATE_THRESHOLD    = 10.0;
+    // Power settings
+    public static final double ARM_EXTENDER_POWER_LIMIT                 = 0.5; // Ideally is 1
+    public static final double ARM_EXTENDER_CAL_POWER                   = -0.25; // Zero Calibration Power
+    public static final double ARM_EXTENDER_MAX_POWER_COMP              = 0.2;
+    // Preset positions
+    public static final double ARM_EXTENDER_MIN_POS                     = ARM_EXTENDER_OFFSET;
+    public static final double ARM_EXTENDER_MAX_POS                     = 100.0;
+    public static final double ARM_EXTENDER_LOAD_POS                    = 0.0;
+    public static final double ARM_EXTENDER_SAFE_POS                    = 15.0; // Position that the arm is safe to extend, and wrist is safe to rotate
+    public static final double ARM_EXTENDER_PRESET_TOLERANCE            = 0.2;
+    public static final double[] ARM_EXTENDER_PRESETS                   = new double[] {
+                                                                            ARM_EXTENDER_LOAD_POS
+    };
+    // PID Actuator parameters
+    public static final double ARM_EXTENDER_KP                          = 0.0;
+    public static final double ARM_EXTENDER_KI                          = 0.0; // Unused
+    public static final double ARM_EXTENDER_KD                          = 0.0;
+    public static final double ARM_EXTENDER_KF                          = 0.0;
+    public static final double ARM_EXTENDER_IZONE                       = 0.0; // Unused
+    public static final double ARM_EXTENDER_TOLERANCE                   = 0.5;
+
+
+    // ----- Wrist -----
+    // @TODO Tune Values
+    public static final boolean WRIST_SERVO_INVERTED                    = false;
+    public static final boolean WRIST_HAS_FOLLOWER_SERVO                = true;
+    public static final boolean WRIST_FOLLOWER_SERVO_INVERTED           = true;
+    public static final double WRIST_MIN_POS                            = 0.0;
+    public static final double WRIST_MAX_POS                            = 0.38;
+    public static final double WRIST_DOWN_POS                           = 0.222;
+    public static final double WRIST_UP_POS                             = WRIST_MAX_POS;
+    public static final double[] WRIST_SENSOR_THRESHOLDS                = new double[] {0.35};
+    // PID Actuator parameters
+    public static final double WRIST_KP                                 = 0.0;
+    public static final double WRIST_TOLERANCE                          = 2.0;
 
     // ----- Claw -----
     // @TODO Claw Params
