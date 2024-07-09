@@ -131,6 +131,10 @@ public class RobotParams
     public static final String HWNAME_WEBCAM_FRONT              = "Webcam Front";
     public static final String HWNAME_WEBCAM_BACK               = "Webcam Back";
 
+    public static final String HWNAME_WRIST_LASER_TOP           = "wristLaserTop";
+    public static final String HWNAME_WRIST_LASER_BOT           = "wristLaserBot";
+
+
     // Miscellaneous
     public static final String HWNAME_BLINKIN                   = "blinkin";
 
@@ -424,8 +428,8 @@ public class RobotParams
     public static final boolean WRIST_FOLLOWER_SERVO_INVERTED           = true;
     public static final double WRIST_MIN_POS                            = 0.0;
     public static final double WRIST_MAX_POS                            = 0.38;
-    public static final double WRIST_DOWN_POS                           = 0.222;
-    public static final double WRIST_UP_POS                             = WRIST_MAX_POS;
+    public static final double WRIST_COLLECTING_POS                     = 0.222;
+    public static final double WRIST_BACKBOARD_POS                      = WRIST_MAX_POS; // Position to rotate towards backboard - won't be perfect
     public static final double[] WRIST_SENSOR_THRESHOLDS                = new double[] {0.35};
     // PID Actuator parameters
     public static final double WRIST_KP                                 = 0.0;
