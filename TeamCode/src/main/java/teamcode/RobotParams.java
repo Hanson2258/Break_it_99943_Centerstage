@@ -84,7 +84,7 @@ public class RobotParams
         public static boolean useIntake = false;
         public static boolean hasCollectedPixelsSensor = false;
         public static boolean useArm = false;
-        public static boolean useArmRotator = false;
+        public static boolean useArmElbow = false;
         public static boolean useArmExtender = false;
         public static boolean useWrist = false;
         public static boolean useWristSensor = false;
@@ -117,7 +117,7 @@ public class RobotParams
     // Subsystems
     // @TODO Check Validity
     public static final String HWNAME_INTAKE                    = "intake";
-    public static final String HWNAME_ARM_ROTATOR               = "arm rotator";
+    public static final String HWNAME_ARM_ELBOW                 = "arm elbow";
     public static final String HWNAME_ARM_EXTENDER              = "arm extender";
     public static final String HWNAME_WRIST                     = "wrist";
     public static final String HWNAME_CLAW                      = "claw";
@@ -356,35 +356,34 @@ public class RobotParams
     // ----- Intake -----
     // @TODO Add Intake Params
 
-    // ----- Arm Rotator -----
+    // ----- Arm Elbow -----
     // @TODO Tune Values
-    public static final boolean ARM_ROTATOR_MOTOR_INVERTED              = false;
-    public static final boolean ARM_ROTATOR_VOLTAGE_COMP_ENABLED        = true;
-    public static final double ARM_ROTATOR_DEG_PER_COUNT                = NEVEREST_40_RPM;
-    public static final double ARM_ROTATOR_OFFSET                       = 90.0; // Resting on the Robot
-    public static final double ARM_ROTATOR_STALL_DETECTION_DELAY        = 0.1;
-    public static final double ARM_ROTATOR_STALL_DETECTION_TIMEOUT      = 0.1;
-    public static final double ARM_ROTATOR_STALL_ERR_RATE_THRESHOLD     = 10.0;
+    public static final boolean ARM_ELBOW_MOTOR_INVERTED                = false;
+    public static final boolean ARM_ELBOW_VOLTAGE_COMP_ENABLED          = true;
+    public static final double ARM_ELBOW_DEG_PER_COUNT                  = NEVEREST_40_RPM;
+    public static final double ARM_ELBOW_OFFSET                         = 90.0; // Resting on the Robot
+    public static final double ARM_ELBOW_STALL_DETECTION_DELAY          = 0.1;
+    public static final double ARM_ELBOW_STALL_DETECTION_TIMEOUT        = 0.1;
+    public static final double ARM_ELBOW_STALL_ERR_RATE_THRESHOLD       = 10.0;
     // Power settings
-    public static final double ARM_ROTATOR_POWER_LIMIT                  = 0.5; // Ideally is 1
-    public static final double ARM_ROTATOR_CAL_POWER                    = -0.25; // Zero Calibration Power
+    public static final double ARM_ELBOW_POWER_LIMIT                    = 0.5; // Ideally is 1
+    public static final double ARM_ELBOW_CAL_POWER                      = -0.25; // Zero Calibration Power
     // Preset positions
-    public static final double ARM_ROTATOR_MIN_DEG                      = ARM_ROTATOR_OFFSET;
-    public static final double ARM_ROTATOR_MAX_DEG                      = 150.0; // 180.0 Deg is pointing straight up
-    public static final double ARM_ROTATOR_LOAD_DEG                     = 90.0;
-    public static final double ARM_ROTATOR_SAFE_DEG                     = 100.0; // Position that the arm is safe to extend, and wrist is safe to rotate
-    public static final double ARM_ROTATOR_PRESET_TOLERANCE             = 5.0;
-    public static final double[] ARM_ROTATOR_PRESETS                    = new double[] {
-                                                                            ARM_ROTATOR_LOAD_DEG
+    public static final double ARM_ELBOW_MIN_DEG                        = ARM_ELBOW_OFFSET;
+    public static final double ARM_ELBOW_MAX_DEG                        = 150.0; // 180.0 Deg is pointing straight up
+    public static final double ARM_ELBOW_LOAD_DEG                       = 90.0;
+    public static final double ARM_ELBOW_SAFE_DEG                       = 100.0; // Position that the arm is safe to extend, and wrist is safe to rotate
+    public static final double ARM_ELBOW_PRESET_TOLERANCE               = 5.0;
+    public static final double[] ARM_ELBOW_PRESETS                      = new double[] {
+                                                                           ARM_ELBOW_LOAD_DEG
     };
     // PID Actuator parameters
-    public static final double ARM_ROTATOR_KP                           = 0.0;
-    public static final double ARM_ROTATOR_KI                           = 0.0; // Unused
-    public static final double ARM_ROTATOR_KD                           = 0.0;
-    public static final double ARM_ROTATOR_KF                           = 0.0;
-    public static final double ARM_ROTATOR_IZONE                        = 0.0; // Unused
-    public static final double ARM_ROTATOR_TOLERANCE                    = 2.0;
-
+    public static final double ARM_ELBOW_KP                             = 0.0;
+    public static final double ARM_ELBOW_KI                             = 0.0; // Unused
+    public static final double ARM_ELBOW_KD                             = 0.0;
+    public static final double ARM_ELBOW_KF                             = 0.0;
+    public static final double ARM_ELBOW_IZONE                          = 0.0; // Unused
+    public static final double ARM_ELBOW_TOLERANCE                      = 2.0;
 
 
     // ----- Arm Extender -----
