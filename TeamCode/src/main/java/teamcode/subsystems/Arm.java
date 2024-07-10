@@ -165,10 +165,10 @@ public class Arm implements TrcExclusiveSubsystem
 
 		// Rotator subsystem
 		public final TrcMotor rotator;
-		private double elevatorPrevPrintedPower = 0.0;
+		private double rotatorPrevPrintedPower = 0.0;
 		// Extender subsystem
 		public final TrcMotor extender;
-		private double armPrevPrintedPower = 0.0;
+		private double extenderPrevPrintedPower = 0.0;
 		// Wrist subsystem
 		public final FtcServo wrist;
 		public final FtcDistanceSensor wristSensorTop;
@@ -222,7 +222,7 @@ public class Arm implements TrcExclusiveSubsystem
 						extender.setStallDetectionEnabled(
 										RobotParams.ARM_EXTENDER_STALL_DETECTION_DELAY, RobotParams.ARM_EXTENDER_STALL_DETECTION_TIMEOUT,
 										RobotParams.ARM_EXTENDER_STALL_ERR_RATE_THRESHOLD);
-						extender.setPositionPidPowerComp(this::armRotatorGetPowerComp);
+						extender.setPositionPidPowerComp(this::extenderGetPowerComp);
 						extender.setTraceLevel(TrcDbgTrace.MsgLevel.INFO, false, false, null);
 				}
 				else
@@ -432,10 +432,10 @@ public class Arm implements TrcExclusiveSubsystem
 
 						case ExtenderSetPower:
 								// Trace only if power has changed
-								if (actionParams.power != elevatorPrevPrintedPower)
+								if (actionParams.power != extenderPrevPrintedPower)
 								{
 										tracer.traceInfo(moduleName, "actionParams=" + actionParams);
-										elevatorPrevPrintedPower = actionParams.power;
+										extenderPrevPrintedPower = actionParams.power;
 								}
 								// Extend the arm only if the arm is already at or has reached safe position.
 								// actionParams.actionEvent is null if arm is already at safe position.
@@ -451,10 +451,10 @@ public class Arm implements TrcExclusiveSubsystem
 
 						case ExtenderSetPidPower:
 								// Trace only if power has changed
-								if (actionParams.power != elevatorPrevPrintedPower)
+								if (actionParams.power != extenderPrevPrintedPower)
 								{
 										tracer.traceInfo(moduleName, "actionParams=" + actionParams);
-										elevatorPrevPrintedPower = actionParams.power;
+										extenderPrevPrintedPower = actionParams.power;
 								}
 								// Move the elevator only if the arm is already at or has reached safe position.
 								// actionParams.actionEvent is null if arm is already at safe position.
@@ -494,10 +494,10 @@ public class Arm implements TrcExclusiveSubsystem
 
 						case RotatorSetPower:
 								// Trace only if power has changed
-								if (actionParams.power != armPrevPrintedPower)
+								if (actionParams.power != rotatorPrevPrintedPower)
 								{
 										tracer.traceInfo(moduleName, "actionParams=" + actionParams);
-										armPrevPrintedPower = actionParams.power;
+										rotatorPrevPrintedPower = actionParams.power;
 								}
 								// Move the arm only if the elevator is already at or has reached safe height.
 								// actionParams.actionEvent is null if elevator is already at safe height.
@@ -512,10 +512,10 @@ public class Arm implements TrcExclusiveSubsystem
 
 						case RotatorSetPidPower:
 								// Trace only if power has changed
-								if (actionParams.power != armPrevPrintedPower)
+								if (actionParams.power != rotatorPrevPrintedPower)
 								{
 										tracer.traceInfo(moduleName, "actionParams=" + actionParams);
-										armPrevPrintedPower = actionParams.power;
+										rotatorPrevPrintedPower = actionParams.power;
 								}
 								// Move the arm only if the elevator is already at or has reached safe height.
 								// actionParams.actionEvent is null if elevator is already at safe height.
@@ -679,29 +679,31 @@ public class Arm implements TrcExclusiveSubsystem
 		{
 				double rotatorPos = rotator.getPosition();
 
-//				Want to move from load to scoring
-//				Arm can only move if: extension is within safe pos and wrist is down.
-//
-//						want to move from scoring to loading
-//				Arm can only move if: extension is within safe pos and wrist is down
-				
-
-//				return extender.getPosition() + RobotParams.ARM_EXTENDER_TOLERANCE <= RobotParams.ARM_EXTENDER_SAFE_POS ||
-//								// ^^^ Extender is retracted in the robot
-//								rotatorPos <= RobotParams.ARM_ROTATOR_LOAD_DEG && rotatorTargetPos <= RobotParams.ARM_ROTATOR_LOAD_DEG ||
-//								// ^^^ Rotator already in LOAD_POS
-//								rotatorPos + RobotParams.ARM_ROTATOR_TOLERANCE >= RobotParams.ARM_ROTATOR_SAFE_DEG &&
-//												rotatorTargetPos >= RobotParams.ARM_ROTATOR_SAFE_DEG;
+				// If rotator is above safe deg, and target is above safe deg, return true
+				// Otherwise, movement is not safe
+				if (rotatorPos - RobotParams.ARM_ROTATOR_TOLERANCE >= RobotParams.ARM_ROTATOR_SAFE_DEG
+								&& rotatorTargetPos - RobotParams.ARM_ROTATOR_TOLERANCE >= RobotParams.ARM_ROTATOR_SAFE_DEG)
+				{
+						return true;
+				}
+				// Else, regardless of movement, arm must be fully retracted for rotational movement to be safe
+						// If rotator is above safe deg, and target is below safe deg, arm must be fully retracted
+						// If rotator is below safe deg, and target is above safe deg, arm must be fully retracted
+						// if rotator is below safe def, and target is below safe deg, arm must be fully retracted
+				else
+				{
+						return extender.getPosition() + RobotParams.ARM_EXTENDER_TOLERANCE <= RobotParams.ARM_EXTENDER_SAFE_POS;
+				}
 		} // rotatorIsSafeToMove
 
 		/**
-		 * This method sets the arm position.
+		 * This method sets the rotator position (in degrees).
 		 *
-		 * @param owner specifies the ID string of the caller for checking ownership, can be null if caller is not
-		 *        ownership aware.
+		 * @param owner specifies the ID string of the caller for checking ownership, can be null if
+		 *                caller is no ownership aware.
 		 * @param cancelPrev specifies true to cancel previous operation, false otherwise.
 		 * @param delay specifies the time in seconds to delay before setting the value, 0.0 if no delay.
-		 * @param pos specifies the position in scaled units to be set.
+		 * @param pos specifies the position in scaled units to be set (degrees).
 		 * @param powerLimit specifies the maximum power output limits.
 		 * @param completionEvent specifies the event to signal when operation is completed, can be null if not provided.
 		 * @param timeout specifies timeout in seconds.
@@ -715,8 +717,8 @@ public class Arm implements TrcExclusiveSubsystem
 				tracer.traceInfo(
 								moduleName,
 								"owner=%s, delay=%.3f, pos=%.1f, powerLimit=%.1f, event=%s, timeout=%.3f " +
-												"(elevatorPos=%.2f, armPos=%.2f)",
-								owner, delay, pos, powerLimit, completionEvent, timeout, extender.getPosition(), rotator.getPosition());
+												"(rotatorPos=%.2f, extenderPos=%.2f)",
+								owner, delay, pos, powerLimit, completionEvent, timeout, rotator.getPosition(), extender.getPosition());
 				if (cancelPrev)
 				{
 						cancel(owner);
@@ -728,28 +730,28 @@ public class Arm implements TrcExclusiveSubsystem
 				{
 						boolean safeToMove = rotatorIsSafeToMove(pos);
 						ActionParams actionParams = new ActionParams();
-						TrcEvent actionEvent = safeToMove ? null : new TrcEvent("armSetPosition.actionEvent");
-						// Setting up the arm operation after the elevator is at safe height.
+						TrcEvent actionEvent = safeToMove ? null : new TrcEvent("rotatorSetPosition.actionEvent");
+						// Setting up the arm operation after the arm is retracted to safe position if needed
 						actionParams.setPositionParams(
 										ActionType.RotatorSetPosition, actionEvent, delay, pos, powerLimit, completionEvent, expiredTime);
 						if (safeToMove)
 						{
-								// Elevator is already at safe height.
+								// Arm is already at a safe position
 								performAction(actionParams);
 						}
 						else
 						{
-								// Move the elevator to safe height and set up a callback to finish the arm operation.
+								// Retract the arm to a safe position and set up a callback to finish the arm operation
 								setActionCallback(actionParams, actionEvent);
 								extender.setPosition(
-												null, delay, RobotParams.ARM_EXTENDER_SAFE_POS, true, RobotParams.ARM_EXTENDER_POWER_LIMIT, actionEvent,
-												timeout);
+												null, delay, RobotParams.ARM_EXTENDER_SAFE_POS, true,
+												RobotParams.ARM_EXTENDER_POWER_LIMIT, actionEvent, timeout);
 						}
 				}
-		}   //armSetPosition
+		} // rotatorSetPosition
 
 		/**
-		 * This method sets the arm position.
+		 * This method sets the rotator position (in degrees).
 		 *
 		 * @param owner specifies the ID string of the caller for checking ownership, can be null if caller is not
 		 *        ownership aware.
@@ -763,10 +765,10 @@ public class Arm implements TrcExclusiveSubsystem
 						String owner, double delay, double pos, double powerLimit, TrcEvent completionEvent, double timeout)
 		{
 				rotatorSetPosition(owner, true, delay, pos, powerLimit, completionEvent, timeout);
-		}   //armSetPosition
+		} // rotatorSetPosition
 
 		/**
-		 * This method sets the arm power.
+		 * This method sets the rotator power.
 		 *
 		 * @param owner specifies the ID string of the caller for checking ownership, can be null if caller is not
 		 *        ownership aware.
@@ -776,16 +778,16 @@ public class Arm implements TrcExclusiveSubsystem
 		 *        turning off.
 		 * @param event specifies the event to signal when the motor operation is completed.
 		 */
-		public void armSetPower(String owner, double delay, double power, double duration, TrcEvent event)
+		public void rotatorSetPower(String owner, double delay, double power, double duration, TrcEvent event)
 		{
-				// Trace only if power has changed.
-				if (power != armPrevPrintedPower)
+				// Trace only if power has changed
+				if (power != rotatorPrevPrintedPower)
 				{
 						tracer.traceInfo(
 										moduleName, "owner=%s, delay=%.1f, power=%.3f, duration=%.3f, pos=%.3f, event=%s, safe=%s",
 										owner, delay, power, duration, rotator.getPosition(), event,
 										rotatorIsSafeToMove(power > 0.0 ? RobotParams.ARM_ROTATOR_MAX_DEG : RobotParams.ARM_ROTATOR_MIN_DEG));
-						armPrevPrintedPower = power;
+						rotatorPrevPrintedPower = power;
 				}
 
 				if (validateOwnership(owner))
@@ -794,41 +796,41 @@ public class Arm implements TrcExclusiveSubsystem
 										power == 0.0 || rotatorIsSafeToMove(power > 0.0 ? RobotParams.ARM_ROTATOR_MAX_DEG : RobotParams.ARM_ROTATOR_MIN_DEG);
 						ActionParams actionParams = new ActionParams();
 						TrcEvent actionEvent = safeToMove ? null : new TrcEvent("armSetPower.actionEvent");
-						// Setting up the arm operation after the elevator is at safe height.
+						// Setting up the arm operation after the arm is retracted to safe position if needed
 						actionParams.setPowerParams(ActionType.RotatorSetPower, actionEvent, delay, power, duration, event);
 						if (safeToMove)
 						{
-								// Elevator is already at safe height.
+								// Arm is already at a safe position
 								performAction(actionParams);
 						}
 						else
 						{
-								// Move the elevator to safe height and set up a callback to finish the arm operation.
+								// Retract the arm to a safe position and set up a callback to finish the arm operation
 								setActionCallback(actionParams, actionEvent);
 								extender.setPosition(
 												null, delay, RobotParams.ARM_EXTENDER_SAFE_POS, true, RobotParams.ARM_EXTENDER_POWER_LIMIT, actionEvent,
 												0.0);
 						}
 				}
-		}   //armSetPower
+		} // rotatorSetPower
 
 		/**
-		 * This method sets the arm power with PID control.
+		 * This method sets the rotator power with PID control.
 		 *
 		 * @param owner specifies the owner ID to check if the caller has ownership of the motor.
 		 * @param power specifies the upper bound power of the motor.
 		 * @param minPos specifies the minimum of the position range.
 		 * @param maxPos specifies the maximum of the position range.
 		 */
-		public void armSetPidPower(String owner, double power, double minPos, double maxPos)
+		public void rotatorSetPidPower(String owner, double power, double minPos, double maxPos)
 		{
 				// Trace only if power has changed.
-				if (power != armPrevPrintedPower)
+				if (power != rotatorPrevPrintedPower)
 				{
 						tracer.traceInfo(
 										moduleName, "owner=%s, power=%.3f, pos=%.3f, minPos=%.1f, maxPos=%.1f, safe=%s",
 										owner, power, rotator.getPosition(), minPos, maxPos, rotatorIsSafeToMove(power > 0.0 ? maxPos : minPos));
-						armPrevPrintedPower = power;
+						rotatorPrevPrintedPower = power;
 				}
 
 				if (validateOwnership(owner))
@@ -837,25 +839,25 @@ public class Arm implements TrcExclusiveSubsystem
 										power == 0.0 || rotatorIsSafeToMove(power > 0.0 ? maxPos : minPos);
 						ActionParams actionParams = new ActionParams();
 						TrcEvent actionEvent = safeToMove ? null : new TrcEvent("armSetPidPower.actionEvent");
-						// Setting up the arm operation after the elevator is at safe height.
+						// Setting up the arm operation after the arm is retracted to safe position if needed
 						actionParams.setPidPowerParams(ActionType.RotatorSetPidPower, actionEvent, power, minPos, maxPos);
 						if (safeToMove)
 						{
-								// Elevator is already at safe height.
+								// Arm is already at a safe position
 								performAction(actionParams);
 						}
 						else
 						{
-								// Move the elevator to safe height and set up a callback to finish the arm operation.
+								// Retract the arm to a safe position and set up a callback to finish the arm operation
 								setActionCallback(actionParams, actionEvent);
 								extender.setPosition(
 												null, 0.0, RobotParams.ARM_EXTENDER_SAFE_POS, true, RobotParams.ARM_EXTENDER_POWER_LIMIT, actionEvent, 0.0);
 						}
 				}
-		}   //armSetPidPower
+		} // rotatorSetPidPower
 
 		/**
-		 * This method sets the arm to the specified preset position.
+		 * This method sets the rotator to the specified preset position.
 		 *
 		 * @param owner specifies the owner ID to check if the caller has ownership of the subsystem.
 		 * @param delay specifies delay time in seconds before setting position, can be zero if no delay.
@@ -866,24 +868,24 @@ public class Arm implements TrcExclusiveSubsystem
 		 *        timeout, the operation will be canceled and the event will be signaled. If no timeout is specified, it
 		 *        should be set to zero.
 		 */
-		public void armSetPresetPosition(
+		public void rotatorSetPresetPosition(
 						String owner, double delay, int presetIndex, double powerLimit, TrcEvent event, double timeout)
 		{
 				if (rotator.validatePresetIndex(presetIndex))
 				{
 						rotatorSetPosition(owner, delay, rotator.getPresetValue(presetIndex), powerLimit, event, timeout);
 				}
-		}   //armSetPresetPosition
+		} // rotatorSetPresetPosition
 
 		/**
-		 * This method sets the arm to the next preset position up from the current position.
+		 * This method sets the rotator to the next preset position up from the current position.
 		 *
 		 * @param owner specifies the owner ID that will acquire ownership before setting the preset position and will
 		 *        automatically release ownership when the actuator movement is completed, can be null if no ownership
 		 *        is required.
 		 * @param powerLimit specifies the power limit applied to the elevator.
 		 */
-		public void armPresetPositionUp(String owner, double powerLimit)
+		public void rotatorPresetPositionUp(String owner, double powerLimit)
 		{
 				int index = rotator.nextPresetIndexUp();
 
@@ -891,17 +893,17 @@ public class Arm implements TrcExclusiveSubsystem
 				{
 						rotatorSetPosition(owner, 0.0, rotator.getPresetValue(index), powerLimit, null, 5.0);
 				}
-		}   //armPresetPositionUp
+		} // rotatorPresetPositionUp
 
 		/**
-		 * This method sets the arm to the next preset position down from the current position.
+		 * This method sets the rotator to the next preset position down from the current position.
 		 *
 		 * @param owner specifies the owner ID that will acquire ownership before setting the preset position and will
 		 *        automatically release ownership when the actuator movement is completed, can be null if no ownership
 		 *        is required.
 		 * @param powerLimit specifies the power limit applied to the elevator.
 		 */
-		public void armPresetPositionDown(String owner, double powerLimit)
+		public void rotatorPresetPositionDown(String owner, double powerLimit)
 		{
 				int index = rotator.nextPresetIndexDown();
 
@@ -909,32 +911,40 @@ public class Arm implements TrcExclusiveSubsystem
 				{
 						rotatorSetPosition(owner, 0.0, rotator.getPresetValue(index), powerLimit, null, 5.0);
 				}
-		}   //armPresetPositionDown
+		} // rotatorPresetPositionDown
 
 
 		// ------------------------------------------------------------------------------------------ //
 		// -------------------------------- Extender subsystem methods ------------------------------ //
 		// ------------------------------------------------------------------------------------------ //
 		/**
-		 * This method checks if the elevator is safe to move to the target position so it doesn't hit the intake.
+		 * This method is called to compute the power compensation to counteract gravity on the arm extender.
+		 *
+		 * @param currPower specifies the current motor power (not used).
+		 * @return gravity compensation for the arm extender.
+		 */
+		private double extenderGetPowerComp(double currPower)
+		{
+				return RobotParams.ARM_EXTENDER_MAX_POWER_COMP * -Math.cos(Math.toRadians(rotator.getPosition()));
+		} // extenderGetPowerComp
+
+		/**
+		 * This method checks if the arm is safe to extend/ retract to the target position so it doesn't hit the frame of the robot.
 		 *
 		 * @param extenderTargetPos specifies the elevator target position.
 		 * @return true if it is safe to move, false otherwise.
 		 */
 		private boolean extenderIsSafeToMove(double extenderTargetPos)
 		{
-				double currArmPos = rotator.getPosition();
+				double rotatorPos = rotator.getPosition();
 
-				return currArmPos - RobotParams.ARM_ROTATOR_TOLERANCE <= RobotParams.ARM_ROTATOR_LOAD_DEG ||
-								// ^^^ Arm is already in load position.
-								currArmPos + RobotParams.ARM_ROTATOR_TOLERANCE >= RobotParams.ARM_ROTATOR_FREE_TO_MOVE_POS ||
-								// ^^^ Arm is already beyond FREE_TO_MOVE position.
-								extenderTargetPos >= RobotParams.ARM_EXTENDER_SAFE_POS;
-				// ^^^ We are moving up beyond ELEVATOR_SAFE_POS.
-		}   //elevatorIsSafeToMove
+				// If rotator is above safe deg, extender is safe to move
+				// Else, it is not
+				return rotatorPos - RobotParams.ARM_ROTATOR_TOLERANCE >= RobotParams.ARM_ROTATOR_SAFE_DEG;
+		} // extenderIsSafeToMove
 
 		/**
-		 * This method sets the elevator position.
+		 * This method sets the extender position.
 		 *
 		 * @param owner specifies the ID string of the caller for checking ownership, can be null if caller is not
 		 *        ownership aware.
@@ -945,7 +955,7 @@ public class Arm implements TrcExclusiveSubsystem
 		 * @param completionEvent specifies the event to signal when operation is completed, can be null if not provided.
 		 * @param timeout specifies timeout in seconds.
 		 */
-		private void elevatorSetPosition(
+		private void extenderSetPosition(
 						String owner, boolean cancelPrev, double delay, double pos, double powerLimit, TrcEvent completionEvent,
 						double timeout)
 		{
@@ -954,8 +964,8 @@ public class Arm implements TrcExclusiveSubsystem
 				tracer.traceInfo(
 								moduleName,
 								"owner=%s, delay=%.3f, pos=%.1f, powerLimit=%.1f, event=%s, timeout=%.3f " +
-												"(elevatorPos=%.2f, armPos=%.2f)",
-								owner, delay, pos, powerLimit, completionEvent, timeout, extender.getPosition(), rotator.getPosition());
+												"(rotatorPos=%.2f, extenderPos=%.2f)",
+								owner, delay, pos, powerLimit, completionEvent, timeout, rotator.getPosition(), extender.getPosition());
 				if (cancelPrev)
 				{
 						cancel(owner);
@@ -967,27 +977,27 @@ public class Arm implements TrcExclusiveSubsystem
 				{
 						boolean safeToMove = extenderIsSafeToMove(pos);
 						ActionParams actionParams = new ActionParams();
-						TrcEvent actionEvent = safeToMove ? null : new TrcEvent("elevatorSetPosition.actionEvent");
-						// Setting up the elevator operation after the arm is at safe position.
+						TrcEvent actionEvent = safeToMove ? null : new TrcEvent("extenderSetPosition.actionEvent");
+						// Setting up the extender operation after the arm is rotated to safe position if needed
 						actionParams.setPositionParams(
 										ActionType.ExtenderSetPosition, actionEvent, delay, pos, powerLimit, completionEvent, expiredTime);
 						if (safeToMove)
 						{
-								// Arm is already at safe position.
+								// Arm is already at a safe position
 								performAction(actionParams);
 						}
 						else
 						{
-								// Move the arm to safe position and set up a callback to finish the elevator operation.
+								// Rotate the arm to a safe position and set up a callback to finish the extension operation
 								setActionCallback(actionParams, actionEvent);
 								rotator.setPosition(
-												null, delay, RobotParams.ARM_ROTATOR_LOAD_DEG, true, RobotParams.ARM_ROTATOR_POWER_LIMIT, actionEvent, timeout);
+												null, delay, RobotParams.ARM_ROTATOR_SAFE_DEG, true, RobotParams.ARM_ROTATOR_POWER_LIMIT, actionEvent, timeout);
 						}
 				}
-		}   //elevatorSetPosition
+		} // extenderSetPosition
 
 		/**
-		 * This method sets the elevator position.
+		 * This method sets the extender position.
 		 *
 		 * @param owner specifies the ID string of the caller for checking ownership, can be null if caller is not
 		 *        ownership aware.
@@ -997,14 +1007,14 @@ public class Arm implements TrcExclusiveSubsystem
 		 * @param completionEvent specifies the event to signal when operation is completed, can be null if not provided.
 		 * @param timeout specifies timeout in seconds.
 		 */
-		public void elevatorSetPosition(
+		public void extenderSetPosition(
 						String owner, double delay, double pos, double powerLimit, TrcEvent completionEvent, double timeout)
 		{
-				elevatorSetPosition(owner, true, delay, pos, powerLimit, completionEvent, timeout);
-		}   //elevatorSetPosition
+				extenderSetPosition(owner, true, delay, pos, powerLimit, completionEvent, timeout);
+		} // extenderSetPosition
 
 		/**
-		 * This method sets the elevator power.
+		 * This method sets the extender power.
 		 *
 		 * @param owner specifies the ID string of the caller for checking ownership, can be null if caller is not
 		 *        ownership aware.
@@ -1014,16 +1024,16 @@ public class Arm implements TrcExclusiveSubsystem
 		 *        turning off.
 		 * @param event specifies the event to signal when the motor operation is completed.
 		 */
-		public void elevatorSetPower(String owner, double delay, double power, double duration, TrcEvent event)
+		public void extenderSetPower(String owner, double delay, double power, double duration, TrcEvent event)
 		{
 				// Trace only if power has changed.
-				if (power != elevatorPrevPrintedPower)
+				if (power != extenderPrevPrintedPower)
 				{
 						tracer.traceInfo(
 										moduleName, "owner=%s, delay=%.1f, power=%.3f, duration=%.3f, pos=%.3f, event=%s, safe=%s",
 										owner, delay, power, duration, extender.getPosition(), event,
 										extenderIsSafeToMove(power > 0.0 ? RobotParams.ARM_EXTENDER_MAX_POS : RobotParams.ARM_EXTENDER_MIN_POS));
-						elevatorPrevPrintedPower = power;
+						extenderPrevPrintedPower = power;
 				}
 
 				if (validateOwnership(owner))
@@ -1032,42 +1042,42 @@ public class Arm implements TrcExclusiveSubsystem
 										power == 0.0 ||
 														extenderIsSafeToMove(power > 0.0 ? RobotParams.ARM_EXTENDER_MAX_POS : RobotParams.ARM_EXTENDER_MIN_POS);
 						ActionParams actionParams = new ActionParams();
-						TrcEvent actionEvent = safeToMove ? null : new TrcEvent("elevatorSetPower.actionEvent");
-						// Setting up the elevator operation after the arm is at safe position.
+						TrcEvent actionEvent = safeToMove ? null : new TrcEvent("extenderSetPower.actionEvent");
+						// Setting up the extender operation after the arm is rotated to safe position if needed
 						actionParams.setPowerParams(ActionType.ExtenderSetPower, actionEvent, delay, power, duration, event);
 						if (safeToMove)
 						{
-								// Arm is already at safe position.
+								// Arm is already at a safe position
 								performAction(actionParams);
 						}
 						else
 						{
-								// Move the arm to safe position and set up a callback to finish the elevator operation.
+								// Rotate the arm to a safe position and set up a callback to finish the extension operation
 								setActionCallback(actionParams, actionEvent);
 								rotator.setPosition(
 												null, delay, RobotParams.ARM_ROTATOR_LOAD_DEG, true, RobotParams.ARM_ROTATOR_POWER_LIMIT, actionEvent, 0.0);
 						}
 				}
-		}   //elevatorSetPower
+		} // extenderSetPower
 
 		/**
-		 * This method sets the elevator power with PID control.
+		 * This method sets the extender power with PID control.
 		 *
 		 * @param owner specifies the owner ID to check if the caller has ownership of the motor.
 		 * @param power specifies the upper bound power of the motor.
 		 * @param minPos specifies the minimum of the position range.
 		 * @param maxPos specifies the maximum of the position range.
 		 */
-		public void elevatorSetPidPower(String owner, double power, double minPos, double maxPos)
+		public void extenderSetPidPower(String owner, double power, double minPos, double maxPos)
 		{
-				// Trace only if power has changed.
-				if (power != elevatorPrevPrintedPower)
+				// Trace only if power has changed
+				if (power != extenderPrevPrintedPower)
 				{
 						tracer.traceInfo(
 										moduleName, "owner=%s, power=%.3f, pos=%.3f, minPos=%.1f, maxPos=%.1f, safe=%s",
 										owner, power, extender.getPosition(), minPos, maxPos,
 										extenderIsSafeToMove(power > 0.0 ? maxPos : minPos));
-						elevatorPrevPrintedPower = power;
+						extenderPrevPrintedPower = power;
 				}
 
 				if (validateOwnership(owner))
@@ -1075,25 +1085,25 @@ public class Arm implements TrcExclusiveSubsystem
 						boolean safeToMove = power == 0.0 || extenderIsSafeToMove(power > 0.0 ? maxPos : minPos);
 						ActionParams actionParams = new ActionParams();
 						TrcEvent actionEvent = safeToMove ? null : new TrcEvent("elevatorSetPidPower.actionEvent");
-						// Setting up the elevator operation after the arm is at safe position.
+						// Setting up the extender operation after the arm is rotated to safe position if needed
 						actionParams.setPidPowerParams(ActionType.ExtenderSetPidPower, actionEvent, power, minPos, maxPos);
 						if (safeToMove)
 						{
-								// Arm is already at safe position.
+								// Arm is already at a safe position
 								performAction(actionParams);
 						}
 						else
 						{
-								// Move the arm to safe position and set up a callback to finish the elevator operation.
+								// Rotate the arm to a safe position and set up a callback to finish the extension operation
 								setActionCallback(actionParams, actionEvent);
 								rotator.setPosition(
 												null, 0.0, RobotParams.ARM_ROTATOR_LOAD_DEG, true, RobotParams.ARM_ROTATOR_POWER_LIMIT, actionEvent, 0.0);
 						}
 				}
-		}   //elevatorSetPidPower
+		} // extenderSetPidPower
 
 		/**
-		 * This method sets the elevator to the specified preset position.
+		 * This method sets the extender to the specified preset position.
 		 *
 		 * @param owner specifies the owner ID to check if the caller has ownership of the subsystem.
 		 * @param delay specifies delay time in seconds before setting position, can be zero if no delay.
@@ -1104,51 +1114,55 @@ public class Arm implements TrcExclusiveSubsystem
 		 *        timeout, the operation will be canceled and the event will be signaled. If no timeout is specified, it
 		 *        should be set to zero.
 		 */
-		public void elevatorSetPresetPosition(
+		public void extenderSetPresetPosition(
 						String owner, double delay, int presetIndex, double powerLimit, TrcEvent event, double timeout)
 		{
 				if (extender.validatePresetIndex(presetIndex))
 				{
-						elevatorSetPosition(owner, delay, extender.getPresetValue(presetIndex), powerLimit, event, timeout);
+						extenderSetPosition(owner, delay, extender.getPresetValue(presetIndex), powerLimit, event, timeout);
 				}
-		}   //elevatorSetPresetPosition
+		} // extenderSetPresetPosition
 
 		/**
-		 * This method sets the elevator to the next preset position up from the current position.
+		 * This method sets the extender to the next preset position up from the current position.
 		 *
 		 * @param owner specifies the owner ID that will acquire ownership before setting the preset position and will
 		 *        automatically release ownership when the actuator movement is completed, can be null if no ownership
 		 *        is required.
 		 * @param powerLimit specifies the power limit applied to the elevator.
 		 */
-		public void elevatorPresetPositionUp(String owner, double powerLimit)
+		public void extenderPresetPositionUp(String owner, double powerLimit)
 		{
 				int index = extender.nextPresetIndexUp();
 
 				if (index != -1)
 				{
-						elevatorSetPosition(owner, 0.0, extender.getPresetValue(index), powerLimit, null, 1.0);
+						extenderSetPosition(owner, 0.0, extender.getPresetValue(index), powerLimit, null, 1.0);
 				}
-		}   //elevatorPresetPositionUp
+		} // extenderPresetPositionUp
 
 		/**
-		 * This method sets the elevator to the next preset position down from the current position.
+		 * This method sets the extender to the next preset position down from the current position.
 		 *
 		 * @param owner specifies the owner ID that will acquire ownership before setting the preset position and will
 		 *        automatically release ownership when the actuator movement is completed, can be null if no ownership
 		 *        is required.
 		 * @param powerLimit specifies the power limit applied to the elevator.
 		 */
-		public void elevatorPresetPositionDown(String owner, double powerLimit)
+		public void extenderPresetPositionDown(String owner, double powerLimit)
 		{
 				int index = extender.nextPresetIndexDown();
 
 				if (index != -1)
 				{
-						elevatorSetPosition(owner, 0.0, extender.getPresetValue(index), powerLimit, null, 1.0);
+						extenderSetPosition(owner, 0.0, extender.getPresetValue(index), powerLimit, null, 1.0);
 				}
-		}   //elevatorPresetPositionDown
+		} // extenderPresetPositionDown
 
+
+		// ------------------------------------------------------------------------------------------ //
+		// --------------------------------- Wrist subsystem methods -------------------------------- //
+		// ------------------------------------------------------------------------------------------ //
 		/**
 		 * This method sets the wrist position while observing whether it's safe to do so.
 		 *
@@ -1161,12 +1175,12 @@ public class Arm implements TrcExclusiveSubsystem
 		 */
 		public void wristSetPosition(String owner, double delay, double position, TrcEvent completionEvent, double timeout)
 		{
-				if (extender.getPosition() >= RobotParams.ARM_EXTENDER_SAFE_POS ||
-								rotator.getPosition() >= RobotParams.ARM_ROTATOR_SAFE_DEG)
+				// If rotator is at safe pos, wrist is safe to move
+				if (rotator.getPosition() - RobotParams.ARM_ROTATOR_TOLERANCE >= RobotParams.ARM_ROTATOR_SAFE_DEG)
 				{
 						wrist.setPosition(owner, delay, position, completionEvent, timeout);
 				}
-		}   //wristSetPosition
+		} // wristSetPosition
 
 		/**
 		 * This method sets the wrist position while observing whether it's safe to do so.
@@ -1179,8 +1193,12 @@ public class Arm implements TrcExclusiveSubsystem
 		 */
 		public void wristSetPosition(double delay, double position, TrcEvent completionEvent, double timeout)
 		{
-				wristSetPosition(null, delay, position, completionEvent, timeout);
-		}   //wristSetPosition
+				// If rotator is at safe pos, wrist is safe to move
+				if (rotator.getPosition() - RobotParams.ARM_ROTATOR_TOLERANCE >= RobotParams.ARM_ROTATOR_SAFE_DEG)
+				{
+						wristSetPosition(null, delay, position, completionEvent, timeout);
+				}
+		} // wristSetPosition
 
 		/**
 		 * This method sets the wrist position while observing whether it's safe to do so.
@@ -1191,8 +1209,12 @@ public class Arm implements TrcExclusiveSubsystem
 		 */
 		public void wristSetPosition(double delay, double position)
 		{
-				wristSetPosition(null, delay, position, null, 0.0);
-		}   //wristSetPosition
+				// If rotator is at safe pos, wrist is safe to move
+				if (rotator.getPosition() - RobotParams.ARM_ROTATOR_TOLERANCE >= RobotParams.ARM_ROTATOR_SAFE_DEG)
+				{
+						wristSetPosition(null, delay, position, null, 0.0);
+				}
+		} // wristSetPosition
 
 		/**
 		 * This method sets the wrist position while observing whether it's safe to do so.
@@ -1202,8 +1224,12 @@ public class Arm implements TrcExclusiveSubsystem
 		 */
 		public void wristSetPosition(double position)
 		{
-				wristSetPosition(null, 0.0, position, null, 0.0);
-		}   //wristSetPosition
+				// If rotator is at safe pos, wrist is safe to move
+				if (rotator.getPosition() - RobotParams.ARM_ROTATOR_TOLERANCE >= RobotParams.ARM_ROTATOR_SAFE_DEG)
+				{
+						wristSetPosition(null, 0.0, position, null, 0.0);
+				}
+		} // wristSetPosition
 
 		/**
 		 * This method sets the Wrist Sensor task to be enabled/ disabled. If enabled, it is enabled
@@ -1223,7 +1249,7 @@ public class Arm implements TrcExclusiveSubsystem
 				{
 						wristSensorTaskObj.unregisterTask();
 				}
-		}
+		} // wristSetSensorTaskEnabled
 
 		/**
 		 * This method cancels the wrist sensor alignment task.
@@ -1236,7 +1262,7 @@ public class Arm implements TrcExclusiveSubsystem
 				{
 						wristCompletionEvent.cancel();
 				}
-		}
+		} // wristCancelSensorTask
 
 		/**
 		 * This method enabled the Wrist Sensor Task to align the wrist to the backdrop, and signals
@@ -1252,14 +1278,15 @@ public class Arm implements TrcExclusiveSubsystem
 
 						wristSetSensorTaskEnabled(true);
 				}
-		}
+		} // wristAlignment
 
 		/**
-		 * This task gets the error from the wrist sensor and
+		 * This task gets the error from the wrist sensor and moves the wrist until the claw is parallel
+		 * to the backboard.
 		 *
-		 * @param taskType
-		 * @param runMode
-		 * @param slowPeriodicLoop
+		 * @param taskType specifies the task type.
+		 * @param runMode specifies the runMode.
+		 * @param slowPeriodicLoop specifies if the task should run as a slow periodic loop.
 		 */
 		private void wristSensorTask(TrcTaskMgr.TaskType taskType, TrcRobot.RunMode runMode, boolean slowPeriodicLoop)
 		{
@@ -1278,7 +1305,7 @@ public class Arm implements TrcExclusiveSubsystem
 				{
 						wrist.setPower(RobotParams.WRIST_KP * wristError);
 				}
-		}
+		} // wristSensorTask
 
 		/**
 		 * This method is called the TrcTriggerThresholdZones to get the sensor data.
