@@ -406,7 +406,7 @@ public class RobotParams
     public static final double ARM_EXTENDER_MIN_POS                     = ARM_EXTENDER_OFFSET;
     public static final double ARM_EXTENDER_MAX_POS                     = 100.0;
     public static final double ARM_EXTENDER_LOAD_POS                    = 0.0;
-    public static final double ARM_EXTENDER_SAFE_POS                    = 15.0; // Position that the arm is safe to extend, and wrist is safe to rotate
+    public static final double ARM_EXTENDER_SAFE_POS                    = 15.0; // Max position the extender can be to lower arm into the robot
     public static final double ARM_EXTENDER_PRESET_TOLERANCE            = 0.2;
     public static final double[] ARM_EXTENDER_PRESETS                   = new double[] {
                                                                             ARM_EXTENDER_LOAD_POS
